@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS `fuga_movimientos` (
+  `id_fuga` INT(11) NOT NULL AUTO_INCREMENT,
+  `id_producto` INT(11) NOT NULL,
+  `producto_nombre` VARCHAR(200) NOT NULL,
+  `codigo_barras` VARCHAR(64) DEFAULT NULL,
+  `tipo` ENUM('CONSUMO', 'DANIO', 'VENTA_ESPECIAL') NOT NULL,
+  `cantidad` DECIMAL(12,6) NOT NULL,
+  `id_talla` INT(11) DEFAULT NULL,
+  `talla_nombre` VARCHAR(64) DEFAULT NULL,
+  `precio_unitario` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  `monto_total` DECIMAL(14,4) NOT NULL DEFAULT 0.0000,
+  `id_venta` INT(11) DEFAULT NULL,
+  `tipo_pago` VARCHAR(50) DEFAULT NULL,
+  `motivo` VARCHAR(255) DEFAULT NULL,
+  `id_usuario` INT(11) NOT NULL,
+  `fecha_hora` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id_fuga`),
+  KEY `idx_fuga_fecha` (`fecha_hora`),
+  KEY `idx_fuga_producto` (`id_producto`),
+  KEY `idx_fuga_venta` (`id_venta`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

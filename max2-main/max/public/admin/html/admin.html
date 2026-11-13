@@ -1,0 +1,2188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="theme-color" content="#2563eb"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-title" content="MAX"/>
+    <link rel="manifest" href="/manifest.webmanifest"/>
+    <link rel="apple-touch-icon" href="/imagen/images.png"/>
+    <title>MAX — Administración</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="admin.css?v=218">
+    <script src="max-theme.js"></script>
+    <script src="max-ui-dialogs.js?v=208"></script>
+    <script src="max-pwa.js"></script>
+    <script>
+    function switchTab(tab) {
+        // Ocultar todos los paneles
+        const panels = ['dashboardPanel', 'inventarioPanel', 'comprasPanel', 'ventasPanel', 'clientesPanel', 
+                       'catalogoPanel', 'promocionesPanel', 'contabilidadPanel', 'cuentas_pagarPanel', 
+                       'cajaPanel', 'reportesPanel', 'reporte-comprasPanel', 'reporte-utilidadPanel', 'reporte-gananciasPanel', 'impuestosPanel', 'licenciasPanel'];
+        const sidebarLinks = document.querySelectorAll('.sidebar-menu-link');
+        
+        panels.forEach(panelId => {
+            const panel = document.getElementById(panelId);
+            if (panel) panel.style.display = 'none';
+        });
+        
+        sidebarLinks.forEach(link => link.classList.remove('active'));
+        
+        // Mostrar panel seleccionado
+        const panelMap = {
+            'dashboard': ['dashboardPanel', 'dashboard'],
+            'inventario': ['inventarioPanel', 'inventario'],
+            'compras': ['comprasPanel', 'compras'],
+            'ventas': ['ventasPanel', 'ventas'],
+            'clientes': ['clientesPanel', 'clientes'],
+            'catalogo': ['catalogoPanel', 'catalogo'],
+            'promociones': ['promocionesPanel', 'promociones'],
+            'contabilidad': ['contabilidadPanel', 'contabilidad'],
+            'cuentas_pagar': ['cuentas_pagarPanel', 'cuentas_pagar'],
+            'caja': ['cajaPanel', 'caja'],
+            'reportes': ['reportesPanel', 'reportes'],
+            'reporte-compras': ['reportesPanel', 'reportes'],
+            'reporte-utilidad': ['reportesPanel', 'reportes'],
+            'reporte-ganancias': ['reportesPanel', 'reportes'],
+            'impuestos': ['impuestosPanel', 'impuestos'],
+            'licencias': ['licenciasPanel', 'licencias']
+        };
+        
+        if (panelMap[tab]) {
+            const [panelId, linkTab] = panelMap[tab];
+            const panelEl = document.getElementById(panelId);
+            if (panelEl) {
+                panelEl.style.display = 'flex';
+                panelEl.style.flexDirection = 'column';
+            }
+            
+            // Activar link del sidebar (comparación exacta del argumento de switchTab)
+            sidebarLinks.forEach(link => {
+                const onclick = link.getAttribute('onclick') || '';
+                const m = onclick.match(/switchTab\(['\"]([^'\"]+)['\"]\)/);
+                if (m && m[1] === linkTab) {
+                    link.classList.add('active');
+                }
+            });
+            
+            // Cargar dashboard comercial
+            if (tab === 'dashboard') {
+                cargarDashboardData();
+                if (typeof enriquecerDashboardComercial === 'function') enriquecerDashboardComercial();
+                setTimeout(() => {
+                    try {
+                        ['curvaVentas7dChart', 'temporadaChart', 'margenChart'].forEach((id) => {
+                            const c = document.getElementById(id);
+                            if (!c || typeof Chart === 'undefined') return;
+                            const ch = (Chart.getChart) ? Chart.getChart(c) : null;
+                            if (ch) ch.resize();
+                        });
+                    } catch (_) {}
+                }, 250);
+            }
+            if (tab === 'licencias') {
+                setTimeout(() => {
+                    if (typeof cargarLicenciasPanel === 'function') cargarLicenciasPanel();
+                }, 100);
+            }
+            // Cargar contabilidad si se selecciona
+            if (tab === 'contabilidad') {
+                setTimeout(() => {
+                    if (typeof cargarIngresos === 'function') cargarIngresos();
+                    if (typeof cargarPagosProveedoresLibro === 'function') cargarPagosProveedoresLibro();
+                }, 100);
+            }
+            // Cargar inventario / productos
+            if (tab === 'inventario') {
+                setTimeout(() => {
+                    if (typeof window.cargarProductos === 'function') window.cargarProductos();
+                    else if (typeof cargarProductos === 'function') cargarProductos();
+                }, 80);
+            }
+            // Cargar gestión de compras
+            if (tab === 'compras') {
+                setTimeout(() => {
+                    if (typeof cargarCompras === 'function') cargarCompras();
+                    if (typeof cargarProductosCompra === 'function') cargarProductosCompra();
+                    if (typeof cargarProveedoresCompra === 'function') cargarProveedoresCompra();
+                    if (typeof window.cargarProductos === 'function') window.cargarProductos();
+                }, 100);
+            }
+            // Cargar gestión de ventas
+            if (tab === 'ventas') {
+                setTimeout(() => {
+                    if (typeof cargarVentasAdmin === 'function') cargarVentasAdmin();
+                }, 100);
+            }
+            // Cargar cuentas por pagar
+            if (tab === 'cuentas_pagar') {
+                setTimeout(() => {
+                    if (typeof cargarCuentasPagar === 'function') cargarCuentasPagar();
+                }, 100);
+            }
+            // Cargar control de caja
+            if (tab === 'caja') {
+                setTimeout(() => {
+                    if (typeof cargarMovimientosCaja === 'function') cargarMovimientosCaja();
+                }, 100);
+            }
+            // Centro de reportes
+            if (tab === 'reportes' || tab === 'reporte-compras' || tab === 'reporte-utilidad' || tab === 'reporte-ganancias') {
+                setTimeout(() => {
+                    if (typeof initReportesHub === 'function') initReportesHub();
+                    const mapOpen = {
+                        'reporte-compras': 'compras',
+                        'reporte-utilidad': 'utilidad',
+                        'reporte-ganancias': 'ganancias'
+                    };
+                    const openId = mapOpen[tab];
+                    if (openId) {
+                        setTimeout(() => {
+                          if (typeof setReportesFlyoutOpen === 'function') setReportesFlyoutOpen(true);
+                          else {
+                            const fly = document.getElementById('reporteFlyout');
+                            if (fly) fly.classList.add('is-open');
+                          }
+                          const btn = document.querySelector(`.rpt-menu-item[data-report="${openId}"]`);
+                          if (btn) btn.click();
+                        }, 40);
+                    }
+                }, 80);
+            }
+        }
+    }
+    function switchCatalogTab(tab) {
+        // Oculta todas las secciones del submenú de Catálogos
+        var sections = document.querySelectorAll('.catalog-section');
+        sections.forEach(function(s){ s.style.display = 'none'; });
+        // Remueve active de botones
+        var tabs = document.querySelectorAll('.catalog-subnav .catalog-tab, .catalog-subnav button');
+        tabs.forEach(function(b){ b.classList.remove('active'); });
+        // Muestra la solicitada
+        if (tab === 'categorias') {
+            document.getElementById('catalog-categorias').style.display = 'block';
+            document.getElementById('cat-tab-categorias').classList.add('active');
+        }
+        if (tab === 'tallas') {
+            document.getElementById('catalog-tallas').style.display = 'block';
+            document.getElementById('cat-tab-tallas').classList.add('active');
+        }
+        if (tab === 'proveedores') {
+            document.getElementById('catalog-proveedores').style.display = 'block';
+            document.getElementById('cat-tab-proveedores').classList.add('active');
+        }
+    }
+    
+    // Función para toggle del submenú de reportes
+    function toggleReportesSubmenu() {
+        const submenu = document.getElementById('reportesSubmenu');
+        const arrow = document.querySelector('.has-submenu .submenu-arrow');
+        if (submenu) {
+            const isVisible = submenu.style.display !== 'none';
+            submenu.style.display = isVisible ? 'none' : 'block';
+            if (arrow) {
+                arrow.textContent = isVisible ? '▼' : '▲';
+            }
+        }
+    }
+    
+    // Función para cambiar entre pestañas de reportes
+    function switchReporteTab(tab) {
+        // Ocultar todos los reportes
+        const reporteSections = document.querySelectorAll('.reporte-section');
+        reporteSections.forEach(section => section.style.display = 'none');
+        
+        // Remover active de todos los botones
+        const reporteTabs = document.querySelectorAll('.reporte-tab');
+        reporteTabs.forEach(btn => btn.classList.remove('active'));
+        
+        // Mostrar el reporte seleccionado
+        const targetSection = document.getElementById(`reporte-${tab}`);
+        const targetTab = document.getElementById(`tab-${tab}`);
+        
+        if (targetSection) {
+            targetSection.style.display = 'block';
+        }
+        if (targetTab) {
+            targetTab.classList.add('active');
+        }
+        
+        // Cargar datos según el tipo de reporte
+        setTimeout(() => {
+            switch(tab) {
+                case 'compras':
+                    if (typeof renderReporteCompras === 'function') renderReporteCompras();
+                    break;
+                case 'utilidad':
+                    if (typeof cargarReporteUtilidad === 'function') cargarReporteUtilidad();
+                    break;
+                case 'inventario':
+                    if (typeof renderReporteInventario === 'function') renderReporteInventario();
+                    break;
+                case 'ganancias':
+                    if (typeof cargarReporteGanancias === 'function') cargarReporteGanancias();
+                    break;
+                case 'temporada':
+                    if (typeof fetchVentasTemporada === 'function') fetchVentasTemporada('actual');
+                    break;
+                case 'rotacion':
+                    if (typeof cargarRotacionInventario === 'function') cargarRotacionInventario();
+                    break;
+            }
+        }, 100);
+    }
+    // Funciones para manejar modales
+    function mostrarModal(id) {
+        document.getElementById(id).style.display = 'flex';
+    }
+    
+    function cerrarModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    // Funciones para manejar eliminación
+    async function confirmarEliminacion() {
+        try {
+            const id = document.getElementById('eliminarId').value;
+            const tipo = document.getElementById('eliminarTipo').value;
+            
+            // Si es producto, usar endpoint específico de admin
+            if (tipo === 'productos' || tipo === 'admin/productos') {
+                const deleteRes = await fetch(`/api/admin/productos/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!deleteRes.ok) {
+                    const errorData = await deleteRes.json().catch(() => ({}));
+                    throw new Error(errorData.message || 'Error al eliminar el producto');
+                }
+                
+                const deleteData = await deleteRes.json();
+                if (!deleteData.ok && !deleteData.success) {
+                    throw new Error(deleteData.message || 'Error al eliminar el producto');
+                }
+                
+                // Recargar lista de productos
+                if (typeof cargarProductos === 'function') {
+                    cargarProductos();
+                } else if (typeof window.cargarProductos === 'function') {
+                    window.cargarProductos();
+                }
+                if (typeof window.cargarProductosCompra === 'function') window.cargarProductosCompra();
+                
+                alert('✅ Producto eliminado correctamente');
+                cerrarModal('modalConfirmarEliminar');
+                return;
+            }
+            
+            // Para categorias, tallas y proveedores: primero verificar si el elemento está siendo utilizado
+            const validacionRes = await fetch('/api/' + tipo + '/validar-eliminacion/' + id);
+            if (!validacionRes.ok) {
+                throw new Error('Error al validar la eliminación');
+            }
+            const validacionData = await validacionRes.json();
+            
+            if (!validacionData.puedeEliminar) {
+                throw new Error(validacionData.message || 'No se puede eliminar porque está siendo utilizado por uno o más productos.');
+            }
+            
+            // Si no está siendo utilizado, proceder con la eliminación
+            const deleteRes = await fetch('/api/' + tipo + '/' + id, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!deleteRes.ok) {
+                throw new Error('Error al eliminar el elemento');
+            }
+            
+            const deleteData = await deleteRes.json();
+            if (!deleteData.success) {
+                throw new Error(deleteData.message || 'Error al eliminar el elemento');
+            }
+            
+            // Si todo salió bien
+            if (tipo === 'categorias') {
+                cargarCategorias();
+            } else if (tipo === 'tallas') {
+                cargarTallas();
+            } else if (tipo === 'proveedores') {
+                cargarProveedores();
+            }
+            alert('✅ Elemento eliminado correctamente');
+            cerrarModal('modalConfirmarEliminar');
+        } catch (error) {
+            console.error('Error:', error);
+            alert('❌ ' + (error.message || 'Error al procesar la solicitud'));
+            cerrarModal('modalConfirmarEliminar');
+        }
+    }
+
+    function mostrarConfirmacion(id, tipo, nombre) {
+        document.getElementById('eliminarId').value = id;
+        document.getElementById('eliminarTipo').value = tipo;
+        let mensaje = '';
+        if (tipo === 'productos' || tipo === 'admin/productos') {
+            mensaje = '¿Está seguro de que desea eliminar el producto "' + nombre + '"?\n\n⚠️ Esta acción eliminará el producto y su inventario. No se puede eliminar si tiene ventas registradas.';
+        } else if (tipo === 'categorias') {
+            mensaje = '¿Está seguro de que desea eliminar la categoría "' + nombre + '"?';
+        } else if (tipo === 'tallas') {
+            mensaje = '¿Está seguro de que desea eliminar la talla "' + nombre + '"?';
+        } else if (tipo === 'proveedores') {
+            mensaje = '¿Está seguro de que desea eliminar el proveedor "' + nombre + '"?';
+        } else {
+            mensaje = '¿Está seguro de que desea eliminar "' + nombre + '"?';
+        }
+        document.getElementById('mensajeConfirmacion').textContent = mensaje;
+        mostrarModal('modalConfirmarEliminar');
+    }
+
+    function cerrarModalConfirmar() {
+        cerrarModal('modalConfirmarEliminar');
+    }
+
+    // Funciones para editar elementos
+    function editarCategoria(id, nombre) {
+        document.getElementById('editCatId').value = id;
+        document.getElementById('editCatNombre').value = nombre;
+        mostrarModal('modalEditarCategoria');
+    }
+
+    function editarTalla(id, data) {
+        document.getElementById('editTallaId').value = id;
+        document.getElementById('editTallaNombre').value = data.nombre;
+        document.getElementById('editTallaAjuste').value = data.ajuste;
+        document.getElementById('editTallaPecho').value = data.pecho;
+        document.getElementById('editTallaCintura').value = data.cintura;
+        document.getElementById('editTallaCadera').value = data.cadera;
+        document.getElementById('editTallaLargo').value = data.largo;
+        mostrarModal('modalEditarTalla');
+    }
+
+    function editarProveedor(id, data) {
+        document.getElementById('editProvId').value = id;
+        document.getElementById('editProvNombre').value = data.nombre;
+        document.getElementById('editProvContacto').value = data.contacto;
+        document.getElementById('editProvTelefono').value = data.telefono;
+        mostrarModal('modalEditarProveedor');
+    }
+
+    // Manejadores de formularios de edición
+    window.addEventListener('load', function() {
+        // Formulario de Editar Categoría
+        const formEditarCategoria = document.getElementById('formEditarCategoria');
+        if (formEditarCategoria) {
+            formEditarCategoria.onsubmit = async function(e) {
+                e.preventDefault();
+                try {
+                    const id = document.getElementById('editCatId').value;
+                    const nombre = document.getElementById('editCatNombre').value.trim();
+                    
+                    if (!nombre) {
+                        alert('El nombre es requerido');
+                        return;
+                    }
+
+                    const response = await fetch('/api/categorias/' + id, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ nombre })
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        cerrarModal('modalEditarCategoria');
+                        cargarCategorias();
+                    } else {
+                        throw new Error(data.message || 'Error al actualizar categoría');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert(error.message || 'Error al procesar la solicitud');
+                }
+            };
+        }
+
+        // Formulario de Editar Talla
+        const formEditarTalla = document.getElementById('formEditarTalla');
+        if (formEditarTalla) {
+            formEditarTalla.onsubmit = async function(e) {
+                e.preventDefault();
+                try {
+                    const id = document.getElementById('editTallaId').value;
+                    const data = {
+                        nombre: document.getElementById('editTallaNombre').value.trim(),
+                        ajuste: document.getElementById('editTallaAjuste').value,
+                        pecho: document.getElementById('editTallaPecho').value || null,
+                        cintura: document.getElementById('editTallaCintura').value || null,
+                        cadera: document.getElementById('editTallaCadera').value || null,
+                        largo: document.getElementById('editTallaLargo').value || null
+                    };
+
+                    if (!data.nombre || !data.ajuste) {
+                        alert('El nombre y el ajuste son requeridos');
+                        return;
+                    }
+
+                    const response = await fetch('/api/tallas/' + id, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    const responseData = await response.json();
+                    if (responseData.success) {
+                        cerrarModal('modalEditarTalla');
+                        cargarTallas();
+                    } else {
+                        throw new Error(responseData.message || 'Error al actualizar talla');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert(error.message || 'Error al procesar la solicitud');
+                }
+            };
+        }
+
+        // Formulario de Editar Proveedor
+        const formEditarProveedor = document.getElementById('formEditarProveedor');
+        if (formEditarProveedor) {
+            formEditarProveedor.onsubmit = async function(e) {
+                e.preventDefault();
+                try {
+                    const id = document.getElementById('editProvId').value;
+                    const data = {
+                        nombre: document.getElementById('editProvNombre').value.trim(),
+                        contacto: document.getElementById('editProvContacto').value.trim(),
+                        telefono: document.getElementById('editProvTelefono').value.trim()
+                    };
+
+                    if (!data.nombre) {
+                        alert('El nombre es requerido');
+                        return;
+                    }
+
+                    const response = await fetch('/api/proveedores/' + id, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    const responseData = await response.json();
+                    if (responseData.success) {
+                        cerrarModal('modalEditarProveedor');
+                        cargarProveedores();
+                    } else {
+                        throw new Error(responseData.message || 'Error al actualizar proveedor');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert(error.message || 'Error al procesar la solicitud');
+                }
+            };
+        }
+    });
+
+    // Función para recargar listas (debe implementarse en cliente.js o aquí)
+    function cargarLista(tipo) {
+        // Esta función debería estar implementada en cliente.js
+        // Aquí solo la declaramos para evitar errores
+        console.log('Recargando lista de: ' + tipo);
+    }
+
+    window.onload = function() {
+        switchTab('dashboard'); // Dashboard como página principal
+        // Inicializa el submenú de Catálogos
+        switchCatalogTab('categorias');
+        
+        // Los productos se cargan automáticamente desde cliente.js
+        cargarDashboardData(); // Cargar datos del dashboard
+        
+        // Inicializar listeners para botones de acción en las listas
+        ['Categorias', 'Tallas', 'Proveedores'].forEach(function(tipo) {
+            const lista = document.getElementById('catalogo' + tipo);
+            if (lista) {
+                lista.addEventListener('click', function(e) {
+                    const target = e.target;
+                    if (target.classList.contains('btn')) {
+                        const item = target.closest('.item');
+                        const id = item.dataset.id;
+                        const nombre = item.querySelector('span').textContent;
+                        
+                        if (target.textContent === 'Editar') {
+                            if (tipo === 'Categorias') {
+                                editarCategoria(id, nombre);
+                            } else if (tipo === 'Tallas') {
+                                editarTalla(id, {
+                                    nombre: nombre,
+                                    ajuste: item.dataset.ajuste,
+                                    pecho: item.dataset.pecho,
+                                    cintura: item.dataset.cintura,
+                                    cadera: item.dataset.cadera,
+                                    largo: item.dataset.largo
+                                });
+                            } else {
+                                editarProveedor(id, {
+                                    nombre: nombre,
+                                    contacto: item.dataset.contacto,
+                                    telefono: item.dataset.telefono
+                                });
+                            }
+                        } else if (target.textContent === 'Eliminar') {
+                            mostrarConfirmacion(id, tipo.toLowerCase(), nombre);
+                        }
+                    }
+                });
+            }
+        });
+    };
+
+    // Función para cargar datos del dashboard
+    async function cargarDashboardData() {
+        try {
+            const res = await fetch('/api/dashboard/indicadores');
+            const data = await res.json();
+            
+            if (data.ventasMes !== undefined) {
+                document.getElementById('ventasMes').textContent = '$' + parseFloat(data.ventasMes).toFixed(2);
+                const cambio = data.ventasCambio || 0;
+                const cambioEl = document.getElementById('ventasCambio');
+                cambioEl.textContent = (cambio >= 0 ? '↑' : '↓') + ' ' + Math.abs(cambio).toFixed(1) + '%';
+                cambioEl.className = cambio >= 0 ? 'dashboard-card-change positive' : 'dashboard-card-change negative';
+            }
+            
+            if (data.rotacionInventario !== undefined) {
+                document.getElementById('rotacionInv').textContent = parseFloat(data.rotacionInventario).toFixed(2);
+            }
+            
+            if (data.margenGanancia !== undefined) {
+                document.getElementById('margenGanancia').textContent = parseFloat(data.margenGanancia).toFixed(1) + '%';
+            }
+            
+            if (data.stockBajo !== undefined) {
+                document.getElementById('stockBajo').textContent = data.stockBajo;
+            }
+
+            // Cargar gráfico de ventas por temporada
+            setTimeout(() => {
+                const sel = document.getElementById('selectTemporadaDashboard');
+                const periodo = (sel && sel.value) || 'ultimos12';
+                if (typeof fetchVentasTemporada === 'function') fetchVentasTemporada(periodo);
+            }, 450);
+            
+            // Cargar gráfico de márgenes por categoría (espera Chart.js)
+            setTimeout(() => {
+                if (typeof cargarMargenCategoria === 'function') cargarMargenCategoria();
+            }, 450);
+            
+            // Cargar top 10 utilidad
+            setTimeout(() => {
+                if (typeof cargarTop10Utilidad === 'function') cargarTop10Utilidad();
+            }, 450);
+
+        } catch (error) {
+            console.error('Error cargando dashboard:', error);
+        }
+    }
+
+    // Función para cargar tabla de utilidad
+    function cargarTablaUtilidad(datos) {
+        const tbody = document.getElementById('tbodyUtilidad');
+        if (!tbody) return;
+        
+        const top10 = datos.slice(0, 10);
+        tbody.innerHTML = top10.map(prod => `
+            <tr style="border-bottom:1px solid var(--surface-alt);">
+                <td style="padding:var(--spacing-md);">${prod.nombre || prod.marca || 'N/A'}</td>
+                <td style="padding:var(--spacing-md);text-align:right;">$${parseFloat(prod.total_ventas || 0).toFixed(2)}</td>
+                <td style="padding:var(--spacing-md);text-align:right;">$${parseFloat(prod.utilidad_total || 0).toFixed(2)}</td>
+                <td style="padding:var(--spacing-md);text-align:right;">${parseFloat(prod.margen_porcentaje || prod.margen_ganancia || 0).toFixed(1)}%</td>
+            </tr>
+        `).join('');
+    }
+
+    // Función para buscar productos
+    document.getElementById('btnBuscarProd').onclick = async function() {
+        const busqueda = document.getElementById('prodBuscar').value.trim();
+        try {
+            const response = await fetch(`/api/productos/buscar?q=${encodeURIComponent(busqueda)}`);
+            const data = await response.json();
+            
+            const contenedor = document.getElementById('adminProductos');
+            if (data.length === 0) {
+                contenedor.innerHTML = '<div class="item">No se encontraron productos</div>';
+                return;
+            }
+
+            contenedor.innerHTML = data.map(producto => `
+                <div class="item" data-id="${producto.id}">
+                    <div class="producto-info">
+                        <strong>${producto.marca} - ${producto.nombre}</strong><br>
+                        Categoría: ${producto.categoria}<br>
+                        Precio: $${producto.precio} | Stock: ${producto.inventario}
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-small" onclick="editarProducto('${producto.id}')">Editar</button>
+                        <button class="btn btn-small secondary" onclick="mostrarConfirmacion('${producto.id}', 'productos', '${producto.nombre}')">Eliminar</button>
+                    </div>
+                </div>
+            `).join('');
+
+        } catch (error) {
+            console.error('Error al buscar productos:', error);
+            document.getElementById('adminProductos').innerHTML = 
+                '<div class="item">Error al buscar productos</div>';
+        }
+    };
+    </script>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar de navegación -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">MX</div>
+                <div class="sidebar-title">MAX</div>
+                <div class="sidebar-tagline">ERP comercial</div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Inicio</div>
+                    <ul class="sidebar-menu">
+                        <li class="sidebar-menu-item">
+                            <a href="#" class="sidebar-menu-link active" onclick="switchTab('dashboard'); return false;">
+                                <span class="sidebar-menu-icon">📊</span>
+                                <span>Dashboard</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Inventario</div>
+                    <ul class="sidebar-menu">
+                        <li class="sidebar-menu-item">
+                            <a href="#" class="sidebar-menu-link" onclick="switchTab('inventario'); return false;">
+                                <span class="sidebar-menu-icon">📦</span>
+                                <span>Productos</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-menu-item">
+                            <a href="#" class="sidebar-menu-link" onclick="switchTab('catalogo'); return false;">
+                                <span class="sidebar-menu-icon">📋</span>
+                                <span>Catálogos</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-menu-item">
+                            <a href="#" class="sidebar-menu-link" onclick="switchTab('compras'); return false;">
+                                <span class="sidebar-menu-icon">🛒</span>
+                                <span>Compras</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Ventas</div>
+                    <ul class="sidebar-menu">
+                        <li class="sidebar-menu-item">
+                            <a href="#" class="sidebar-menu-link" onclick="switchTab('ventas'); return false;">
+                                <span class="sidebar-menu-icon">💵</span>
+                                <span>Historial ventas</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-menu-item">
+                            <a href="#" class="sidebar-menu-link" onclick="switchTab('clientes'); return false;">
+                                <span class="sidebar-menu-icon">👥</span>
+                                <span>Clientes</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-menu-item">
+                            <a href="#" class="sidebar-menu-link" onclick="switchTab('promociones'); return false;">
+                                <span class="sidebar-menu-icon">🎁</span>
+                                <span>Promociones</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Contabilidad</div>
+                    <ul class="sidebar-menu">
+                        <li class="sidebar-menu-item">
+                            <a href="#" class="sidebar-menu-link" onclick="switchTab('contabilidad'); return false;">
+                                <span class="sidebar-menu-icon">📒</span>
+                                <span>Contabilidad</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-menu-item">
+                            <a href="#" class="sidebar-menu-link" onclick="switchTab('cuentas_pagar'); return false;">
+                                <span class="sidebar-menu-icon">📝</span>
+                                <span>Libro proveedores</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-menu-item">
+                            <a href="#" class="sidebar-menu-link" onclick="switchTab('caja'); return false;">
+                                <span class="sidebar-menu-icon">🏦</span>
+                                <span>Control de Caja</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Reportes</div>
+                    <ul class="sidebar-menu">
+                        <li class="sidebar-menu-item">
+                            <a href="#" class="sidebar-menu-link" onclick="switchTab('reportes'); return false;">
+                                <span class="sidebar-menu-icon">📊</span>
+                                <span>Centro de reportes</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Sistema</div>
+                    <ul class="sidebar-menu">
+                        <li class="sidebar-menu-item">
+                            <a href="#" class="sidebar-menu-link" onclick="switchTab('impuestos'); return false;">
+                                <span class="sidebar-menu-icon">🧾</span>
+                                <span>Impuestos / IVA</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-menu-item">
+                            <a href="#" class="sidebar-menu-link" onclick="switchTab('licencias'); return false;">
+                                <span class="sidebar-menu-icon">🔑</span>
+                                <span>Licencias / Cajas</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Contenido principal -->
+        <div class="main-content">
+            <!-- Header superior -->
+            <header class="top-header">
+                <div class="top-header-left">
+                    <span class="top-header-title">Panel administrativo</span>
+                </div>
+                <div class="top-header-right">
+                    <div class="admin-tasa-chip" id="adminTasaChip" title="Tasa del dólar · clic cambiar · doble clic BCV">
+                        <span>USD → Bs</span>
+                        <strong id="adminTasaDisplay">—</strong>
+                    </div>
+                    <div class="header-icon" id="notifBell" title="Notificaciones" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
+                        🔔
+                        <span class="notification-badge" id="notifBadge" style="display:none;">0</span>
+                    </div>
+                    <div id="notifPanel" class="notif-panel" style="display:none;" aria-hidden="true">
+                        <div class="notif-panel-head">Notificaciones</div>
+                        <div id="notifPanelList" class="notif-panel-list"></div>
+                    </div>
+                    <div class="user-menu" id="userMenu">
+                        <button type="button" class="user-avatar" id="userAvatar" title="Cuenta" aria-haspopup="true" aria-expanded="false">A</button>
+                        <div class="user-menu-panel" id="userMenuPanel" role="menu" hidden>
+                            <div class="user-menu-head">
+                                <strong id="userMenuName">Usuario</strong>
+                                <span id="userMenuRol" class="user-menu-rol">ADMIN</span>
+                            </div>
+                            <div class="user-menu-section">
+                                <div class="user-menu-label">Color del sistema</div>
+                                <div class="theme-swatches" id="themeSwatches">
+                                    <button type="button" class="theme-swatch" data-theme="ocean" title="Azul" style="--sw:#2563eb"></button>
+                                    <button type="button" class="theme-swatch" data-theme="teal" title="Teal" style="--sw:#0d9488"></button>
+                                    <button type="button" class="theme-swatch" data-theme="slate" title="Pizarra" style="--sw:#334155"></button>
+                                    <button type="button" class="theme-swatch" data-theme="forest" title="Verde" style="--sw:#15803d"></button>
+                                    <button type="button" class="theme-swatch" data-theme="wine" title="Vino" style="--sw:#9f1239"></button>
+                                </div>
+                            </div>
+                            <div class="user-menu-section">
+                                <label class="user-menu-check">
+                                    <input type="checkbox" id="userMenuCompact" />
+                                    Densidad compacta
+                                </label>
+                            </div>
+                            <span id="userName" style="display:none;">Usuario</span>
+                            <span id="rolLabel" style="display:none;">ADMIN</span>
+                            <button type="button" id="logoutBtn" class="user-menu-logout" role="menuitem">Cerrar sesión</button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Contenido scrollable -->
+            <div class="content-wrapper">
+        <!-- Modal de confirmación para eliminar -->
+        <div id="modalConfirmarEliminar" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
+            <div style="background:#fff;padding:30px;border-radius:8px;max-width:400px;margin:auto;position:relative;">
+                <h3>Confirmar Eliminación</h3>
+                <p id="mensajeConfirmacion">¿Está seguro de que desea eliminar este elemento?</p>
+                <input type="hidden" id="eliminarId">
+                <input type="hidden" id="eliminarTipo">
+                <div style="margin-top:20px;text-align:right;">
+                    <button onclick="confirmarEliminacion()" class="btn primary">Eliminar</button>
+                    <button onclick="cerrarModalConfirmar()" class="btn secondary">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de edición de categoría -->
+        <div id="modalEditarCategoria" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
+            <div style="background:#fff;padding:30px;border-radius:8px;max-width:400px;margin:auto;position:relative;">
+                <h3>Editar Categoría</h3>
+                <form id="formEditarCategoria">
+                    <input type="hidden" id="editCatId">
+                    <label>Nombre:<input type="text" id="editCatNombre" class="input" required></label>
+                    <div style="margin-top:20px;text-align:right;">
+                        <button type="submit" class="btn primary">Guardar</button>
+                        <button type="button" onclick="cerrarModal('modalEditarCategoria')" class="btn secondary">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal de edición de talla -->
+        <div id="modalEditarTalla" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
+            <div style="background:#fff;padding:30px;border-radius:8px;max-width:400px;margin:auto;position:relative;">
+                <h3>Editar Talla</h3>
+                <form id="formEditarTalla">
+                    <input type="hidden" id="editTallaId">
+                    <label>Nombre:<input type="text" id="editTallaNombre" class="input" required maxlength="10"></label><br>
+                    <label>Ajuste:
+                        <select id="editTallaAjuste" class="input" required>
+                            <option value="">Ajuste</option>
+                            <option value="Slim">Slim Fit</option>
+                            <option value="Regular">Regular Fit</option>
+                            <option value="Oversized">Oversized</option>
+                        </select>
+                    </label><br>
+                    <label>Pecho (cm):<input type="number" id="editTallaPecho" class="input" min="0"></label><br>
+                    <label>Cintura (cm):<input type="number" id="editTallaCintura" class="input" min="0"></label><br>
+                    <label>Cadera (cm):<input type="number" id="editTallaCadera" class="input" min="0"></label><br>
+                    <label>Largo (cm):<input type="number" id="editTallaLargo" class="input" min="0"></label><br>
+                    <div style="margin-top:20px;text-align:right;">
+                        <button type="submit" class="btn primary">Guardar</button>
+                        <button type="button" onclick="cerrarModal('modalEditarTalla')" class="btn secondary">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal de edición de proveedor -->
+        <div id="modalEditarProveedor" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
+            <div style="background:#fff;padding:30px;border-radius:8px;max-width:400px;margin:auto;position:relative;">
+                <h3>Editar Proveedor</h3>
+                <form id="formEditarProveedor">
+                    <input type="hidden" id="editProvId">
+                    <label>Nombre:<input type="text" id="editProvNombre" class="input" required></label><br>
+                    <label>Contacto:<input type="text" id="editProvContacto" class="input"></label><br>
+                    <label>Teléfono:<input type="text" id="editProvTelefono" class="input"></label><br>
+                    <div style="margin-top:20px;text-align:right;">
+                        <button type="submit" class="btn primary">Guardar</button>
+                        <button type="button" onclick="cerrarModal('modalEditarProveedor')" class="btn secondary">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal de edición de producto -->
+        <div id="modalEditarProducto" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;overflow-y:auto;">
+            <div style="background:#fff;padding:30px;border-radius:8px;max-width:600px;margin:auto;position:relative;">
+                <h3>Editar Producto</h3>
+                <form id="formEditarProducto">
+                    <input type="hidden" id="editIdProducto">
+                    <label>Marca:<input type="text" id="editMarca" class="input" required></label><br>
+                    <label>Nombre:<input type="text" id="editNombre" class="input" required></label><br>
+                    <label>Categoría:
+                        <select id="editCategoria" class="input" required></select>
+                    </label><br>
+                    <label>Proveedor:
+                        <select id="editProveedor" class="input" required></select>
+                    </label><br>
+                    <label>Precio base ($):<input type="number" id="editPrecio" class="input" step="0.01" required></label><br>
+                    <div id="editPrecioPublicoWrap" class="prod-precio-publico" style="display:none;margin:6px 0 10px;">
+                      <strong id="editPrecioPublico">—</strong>
+                    </div>
+                    <label>Unidad:
+                        <select id="editUnidad" class="input">
+                            <option value="UNIDAD">Unidad</option>
+                            <option value="KILO">Kilo</option>
+                            <option value="GRAMO">Gramo</option>
+                            <option value="LITRO">Litro</option>
+                            <option value="METRO">Metro</option>
+                            <option value="CAJA">Caja</option>
+                            <option value="PAQUETE">Paquete</option>
+                        </select>
+                    </label><br>
+                    <div id="editEmpaqueWrap" style="display:none;">
+                        <label id="editEmpaqueLabel" style="display:block;font-weight:600;margin-bottom:4px;">Unidades por caja *</label>
+                        <input type="number" id="editUnidadesEmpaque" class="input" step="0.001" min="0.001" placeholder="Ej: 12">
+                    </div>
+                    <label class="barcode-field-card" style="display:block;margin:8px 0;">
+                        Código de barras <span class="barcode-scan-badge">Escáner USB</span>
+                        <div class="barcode-input-row" style="margin-top:6px;">
+                            <input type="text" id="editCodigoBarras" class="input barcode-input" placeholder="Escanea o escribe el código" autocomplete="off">
+                            <button type="button" class="btn secondary barcode-clear-btn" id="editCodigoBarrasClear" title="Limpiar código">Limpiar</button>
+                        </div>
+                        <small class="barcode-help">Haz clic en el campo y escanea con el lector.</small>
+                    </label>
+                    <label>Stock mínimo:<input type="number" id="editStockMinimo" class="input" step="0.000001" min="0" value="0"></label><br>
+                    <label>Nueva imagen (opcional):<input type="file" id="editImagen" accept="image/*" class="input"></label><br>
+                    <div id="editImagenActual" style="margin:8px 0;"></div>
+                    <label>Cantidad adicional (sumar al total):<input type="number" id="editInventario" class="input" step="0.000001" min="0" value="0" placeholder="0"></label><br>
+                    <div style="margin-top:15px;margin-bottom:15px;">
+                        <fieldset style="border:1px solid #ccc; padding:15px;border-radius:4px;">
+                            <legend style="font-weight:600;">Agregar cantidades por talla</legend>
+                            <p style="font-size:0.9em;color:#666;margin-bottom:10px;">Ingresa las cantidades que deseas <strong>AGREGAR</strong> a cada talla (se sumarán a las existentes)</p>
+                            <div id="editTallasDinamicas"></div>
+                        </fieldset>
+                    </div>
+                    <div style="margin-top:10px;text-align:right;">
+                        <button type="submit" class="btn primary">Guardar</button>
+                        <button type="button" class="btn" id="btnCerrarModal">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!-- Modal Detalle de Venta (Admin) -->
+        <div id="modalDetalleVenta" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
+            <div style="background:#fff;padding:20px;border-radius:8px;max-width:700px;width:90vw;">
+                <button onclick="document.getElementById('modalDetalleVenta').style.display='none'" style="float:right;">&times;</button>
+                <h3 id="detalleVentaTitle">Detalle de Venta</h3>
+                <div id="detalleVentaBody">Cargando...</div>
+            </div>
+        </div>
+                <!-- DASHBOARD GERENCIAL (Página Principal) -->
+                <div id="dashboardPanel" class="panel tabContent dash-panel" style="display:flex;flex-direction:column;">
+                    <div class="dash-head">
+                        <div>
+                            <h2 class="dash-title">Dashboard <span id="licenciaBadge" class="dash-badge"></span></h2>
+                            <p class="dash-sub">Hoy, mes, alertas y cajas en un vistazo.</p>
+                        </div>
+                    </div>
+
+                    <section class="dash-section">
+                        <h3 class="dash-section-title">Hoy</h3>
+                        <div class="dashboard-grid dash-kpis">
+                            <div class="dashboard-card dash-kpi gradient-teal">
+                                <div class="dashboard-card-title">Ventas hoy</div>
+                                <div class="dashboard-card-value" id="kpiHoyVentas">$0.00</div>
+                            </div>
+                            <div class="dashboard-card dash-kpi" style="background:var(--surface);">
+                                <div class="dashboard-card-title" style="color:var(--text-secondary);">Egresos hoy</div>
+                                <div class="dashboard-card-value" style="color:var(--text-primary);" id="kpiHoyEgresos">$0.00</div>
+                            </div>
+                            <div class="dashboard-card dash-kpi gradient-dark">
+                                <div class="dashboard-card-title">Margen est. hoy</div>
+                                <div class="dashboard-card-value" id="kpiHoyMargen">$0.00</div>
+                            </div>
+                            <div class="dashboard-card dash-kpi gradient-blue">
+                                <div class="dashboard-card-title">CxP pendiente</div>
+                                <div class="dashboard-card-value" id="kpiCxP">$0.00</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="dash-section">
+                        <h3 class="dash-section-title">Últimos 7 días</h3>
+                        <div class="chart-container">
+                            <div class="chart-canvas dash-chart-canvas" id="curvaVentas7dWrap">
+                                <canvas id="curvaVentas7dChart"></canvas>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="dash-section">
+                        <h3 class="dash-section-title">Del mes</h3>
+                        <div class="dashboard-grid dash-kpis">
+                            <div class="dashboard-card dash-kpi gradient-blue">
+                                <div class="dashboard-card-title">Ventas del mes</div>
+                                <div class="dashboard-card-value" id="ventasMes">$0.00</div>
+                                <div class="dashboard-card-change positive" id="ventasCambio">—</div>
+                            </div>
+                            <div class="dashboard-card dash-kpi gradient-teal">
+                                <div class="dashboard-card-title">Rotación de inventario</div>
+                                <div class="dashboard-card-value" id="rotacionInv">0.0</div>
+                                <div class="dashboard-card-change">Índice mensual</div>
+                            </div>
+                            <div class="dashboard-card dash-kpi gradient-dark">
+                                <div class="dashboard-card-title">Margen de ganancia</div>
+                                <div class="dashboard-card-value" id="margenGanancia">0%</div>
+                                <div class="dashboard-card-change">Promedio general</div>
+                            </div>
+                            <div class="dashboard-card dash-kpi dash-kpi-alert" style="background:var(--surface);">
+                                <div class="dashboard-card-title" style="color:var(--text-secondary);">Stock bajo</div>
+                                <div class="dashboard-card-value" style="color:var(--text-primary);" id="stockBajo">0</div>
+                                <div class="dashboard-card-change" style="color:var(--text-muted);">Productos en alerta</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="dash-section">
+                        <h3 class="dash-section-title">Análisis</h3>
+                        <div class="dash-charts">
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <h4 class="chart-title">Ventas por temporada</h4>
+                                    <select id="selectTemporadaDashboard" class="input" style="width:auto;" onchange="if(typeof fetchVentasTemporada === 'function') fetchVentasTemporada(this.value)">
+                                        <option value="ultimos12" selected>Últimos 12 meses</option>
+                                        <option value="actual">Mes actual</option>
+                                        <option value="anterior">Mes anterior</option>
+                                        <option value="trimestre">Trimestre</option>
+                                        <option value="anual">Año actual</option>
+                                    </select>
+                                </div>
+                                <div class="chart-canvas dash-chart-canvas" id="temporadaChartWrap">
+                                    <canvas id="temporadaChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <h4 class="chart-title">Margen por categoría</h4>
+                                </div>
+                                <div class="chart-canvas dash-chart-canvas" id="margenChartWrap">
+                                    <canvas id="margenChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="dash-section dash-bottom">
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h4 class="chart-title">Top 10 · utilidad por producto</h4>
+                            </div>
+                            <div id="tablaUtilidad" style="overflow-x:auto;">
+                                <table class="dash-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th class="r">Ventas</th>
+                                            <th class="r">Utilidad</th>
+                                            <th class="r">Margen %</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyUtilidad">
+                                        <tr><td colspan="4" class="dash-table-empty">Cargando datos...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h4 class="chart-title">Cajas conectadas</h4>
+                            </div>
+                            <div id="cajasActivasBox" class="list dash-cajas">
+                                <div class="item">Cargando terminales...</div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+            <!-- IMPUESTOS / IVA -->
+            <div id="impuestosPanel" class="panel tabContent" style="display:none;">
+                <div class="admin-page-head">
+                    <div>
+                        <h3>Impuestos · IVA Venezuela</h3>
+                        <p class="admin-page-sub">Actívalo solo si tu negocio factura con IVA. Quienes no lo usen pueden dejarlo apagado sin afectar precios ni cajas.</p>
+                    </div>
+                </div>
+
+                <div class="iva-layout">
+                    <div class="admin-card iva-card">
+                        <div class="iva-card-top">
+                            <div>
+                                <h4 class="admin-card-title" style="margin:0;">IVA en ventas</h4>
+                                <p class="iva-card-desc">Al activarlo se aplica a <strong>todos los productos</strong> al cobrar: cajas, facturas e impresión de etiquetas de precio.</p>
+                            </div>
+                            <label class="iva-switch" title="Activar o desactivar IVA">
+                                <input type="checkbox" id="ivaActivoToggle" />
+                                <span class="iva-switch-slider"></span>
+                                <span class="iva-switch-text" id="ivaActivoLabel">Apagado</span>
+                            </label>
+                        </div>
+
+                        <div class="iva-fields">
+                            <div class="admin-field">
+                                <label for="ivaPorcentajeInput">Porcentaje (%)</label>
+                                <input id="ivaPorcentajeInput" type="number" class="input" min="0" max="100" step="0.01" value="16" />
+                                <small class="iva-hint">Estándar Venezuela: <strong>16%</strong>. Puedes ajustarlo si lo necesitas.</small>
+                            </div>
+                            <div class="iva-note">
+                                <strong>Cómo se calcula</strong>
+                                <ul>
+                                    <li>El precio que registras en productos es la <em>base</em> (sin IVA).</li>
+                                    <li>En inventario verás el <strong>precio al público</strong> (base + IVA), el mismo que se imprime y se cobra.</li>
+                                    <li>Las etiquetas muestran ese precio al público con «IVA incluido».</li>
+                                    <li>La factura imprime: Base imponible · I.V.A. · Total.</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="iva-actions">
+                            <button type="button" id="ivaGuardarBtn" class="btn primary">Guardar configuración</button>
+                            <span id="ivaSaveMsg" class="iva-save-msg" aria-live="polite"></span>
+                        </div>
+                    </div>
+
+                    <div class="admin-card iva-preview-card">
+                        <h4 class="admin-card-title">Vista previa</h4>
+                        <p class="iva-preview-sub">Ejemplo con una venta de <strong>$10,00</strong> (base).</p>
+                        <div class="iva-preview-box" id="ivaPreviewBox">
+                            <div class="iva-prev-row"><span>Base imponible</span><strong id="ivaPrevBase">$10,00</strong></div>
+                            <div class="iva-prev-row" id="ivaPrevIvaRow"><span>IVA <span id="ivaPrevPct">16</span>%</span><strong id="ivaPrevIva">$1,60</strong></div>
+                            <div class="iva-prev-row total"><span>Total a pagar</span><strong id="ivaPrevTotal">$11,60</strong></div>
+                            <div class="iva-prev-badge" id="ivaPrevBadge">IVA desactivado</div>
+                        </div>
+                    </div>
+
+                    <div class="admin-card iva-card" style="grid-column:1/-1;">
+                        <div class="iva-card-top">
+                            <div>
+                                <h4 class="admin-card-title" style="margin:0;">Setup de etiquetas de precio</h4>
+                                <p class="iva-card-desc">Ajusta la impresión térmica para que el texto salga completo, centrado y oscuro. El precio en bolívares se redondea al entero más cercano (<strong>681,20 → 681</strong> · <strong>681,50 → 682</strong>). No cambia el cobro en caja.</p>
+                            </div>
+                        </div>
+                        <div class="iva-fields" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
+                            <div class="admin-field">
+                                <label for="etiqPaperMm">Ancho de papel (mm)</label>
+                                <select id="etiqPaperMm" class="input">
+                                    <option value="80">80 mm</option>
+                                    <option value="58">58 mm</option>
+                                </select>
+                            </div>
+                            <div class="admin-field">
+                                <label for="etiqOffsetX">Mover horizontal (mm)</label>
+                                <input id="etiqOffsetX" type="number" class="input" step="0.5" min="-20" max="20" value="0" />
+                                <small class="iva-hint">Negativo = izquierda · positivo = derecha</small>
+                            </div>
+                            <div class="admin-field">
+                                <label for="etiqOffsetY">Mover vertical (mm)</label>
+                                <input id="etiqOffsetY" type="number" class="input" step="0.5" min="-20" max="20" value="0" />
+                            </div>
+                            <div class="admin-field">
+                                <label for="etiqMargin">Margen interno (mm)</label>
+                                <input id="etiqMargin" type="number" class="input" step="0.5" min="0" max="8" value="1.5" />
+                            </div>
+                        </div>
+                        <div class="iva-actions">
+                            <button type="button" id="etiqSetupGuardarBtn" class="btn primary">Guardar setup de impresión</button>
+                            <span id="etiqSetupMsg" class="iva-save-msg" aria-live="polite"></span>
+                        </div>
+                    </div>
+
+                    <div class="admin-card iva-card" style="grid-column:1/-1;">
+                        <div class="iva-card-top">
+                            <div>
+                                <h4 class="admin-card-title" style="margin:0;">Tasa del dólar (BCV)</h4>
+                                <p class="iva-card-desc">La tasa se controla <strong>solo aquí</strong>. Al cambiarla, las cajas la reciben de inmediato y muestran precios en bolívares (sin $). Al iniciar se toma el <strong>BCV</strong>. <strong>Doble clic</strong> en el chip del encabezado vuelve al BCV.</p>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:1.4rem;font-weight:700;" id="adminTasaPanelValue">—</div>
+                                <div style="font-size:0.8rem;opacity:0.8;" id="adminTasaPanelMeta">—</div>
+                            </div>
+                        </div>
+                        <div class="iva-actions">
+                            <button type="button" id="adminTasaOpenBtn" class="btn primary">Cambiar tasa</button>
+                            <button type="button" id="adminTasaUseBcv" class="btn secondary">Usar BCV ahora</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal tasa admin -->
+            <div id="adminTasaModal" class="pos-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;">
+                <div class="admin-card" style="width:min(420px,92vw);margin:0;padding:20px;">
+                    <h3 style="margin-top:0;">Tasa del dólar</h3>
+                    <p class="iva-card-desc">Se mantiene el tiempo que elijas. Luego vuelve a poder actualizarse con el BCV.</p>
+                    <label style="font-weight:600;font-size:0.85rem;">Bs por 1 USD</label>
+                    <input id="adminTasaInput" type="number" class="input" step="0.0001" min="0.01" style="margin-top:6px;font-size:1.15rem;" />
+                    <label style="font-weight:600;font-size:0.85rem;display:block;margin-top:12px;">Mantener esta tasa durante</label>
+                    <select id="adminTasaDuration" class="input" style="margin-top:6px;">
+                        <option value="1">1 día</option>
+                        <option value="7" selected>1 semana</option>
+                        <option value="15">15 días</option>
+                        <option value="30">1 mes</option>
+                        <option value="90">3 meses</option>
+                    </select>
+                    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
+                        <button type="button" id="adminTasaSave" class="btn primary">Guardar</button>
+                        <button type="button" id="adminTasaCancel" class="btn secondary">Cerrar</button>
+                    </div>
+                    <p id="adminTasaMsg" style="margin:10px 0 0;font-size:0.9rem;" aria-live="polite"></p>
+                </div>
+            </div>
+
+            <!-- LICENCIAS / CAJAS -->
+            <div id="licenciasPanel" class="panel tabContent" style="display:none;">
+                <div class="admin-page-head">
+                    <div>
+                        <h3>Licencias y Terminales POS</h3>
+                        <p class="admin-page-sub">El servidor central no consume cupo. Solo las cajas de venta cuentan contra el plan.</p>
+                    </div>
+                </div>
+                <div id="licenciasEstadoBox"></div>
+                <div class="lic-register admin-card" style="margin-top:20px;">
+                    <h4 class="admin-card-title">Registrar caja adicional</h4>
+                    <p class="lic-register-hint">Para agregar más cajas o subir de plan, consulta con el proveedor.</p>
+                    <form id="formNuevaCaja" class="admin-form-grid">
+                        <div class="admin-field">
+                            <label>Nombre</label>
+                            <input id="nuevaCajaNombre" class="input" placeholder="Ej: Caja 3" required>
+                        </div>
+                        <div class="admin-field">
+                            <label>Clave de acceso</label>
+                            <input id="nuevaCajaClave" class="input" placeholder="Clave de la caja" required>
+                        </div>
+                        <div class="admin-field">
+                            <label>MAC (opcional)</label>
+                            <input id="nuevaCajaMac" class="input" placeholder="Dirección MAC">
+                        </div>
+                        <div class="admin-field">
+                            <label>Clave de autorización</label>
+                            <input id="nuevaCajaAuth" class="input" type="password" placeholder="Clave del proveedor" required autocomplete="off">
+                        </div>
+                        <div class="admin-field" style="align-self:end;">
+                            <button type="submit" class="btn primary">Agregar caja</button>
+                        </div>
+                    </form>
+                    <p class="lic-register-foot">En cada terminal abre <code>caja.html</code> e inicia con la clave de esa caja.</p>
+                </div>
+                <div id="cajaMayorRegistroBox" class="lic-register admin-card" style="margin-top:16px;">
+                    <h4 class="admin-card-title">Registrar Caja Mayor</h4>
+                    <p class="lic-register-hint">Esta terminal usa un puerto separado, comparte inventario y no consume un cupo POS del plan. Puede registrarse aunque los cupos estén llenos. El nombre queda fijado como <strong>Caja Mayor</strong>.</p>
+                    <form id="formCajaMayor" class="admin-form-grid">
+                        <div class="admin-field">
+                            <label>Clave de acceso de Caja Mayor</label>
+                            <input id="cajaMayorClave" class="input" placeholder="Crea una clave para esta terminal" required autocomplete="off">
+                        </div>
+                        <div class="admin-field">
+                            <label>Clave de autorización</label>
+                            <input id="cajaMayorAuth" class="input" type="password" placeholder="Clave del proveedor" required autocomplete="off">
+                        </div>
+                        <div class="admin-field" style="align-self:end;">
+                            <button type="submit" class="btn primary">Registrar Caja Mayor</button>
+                        </div>
+                    </form>
+                    <p class="lic-register-foot">El acceso de red aparece arriba como “Caja Mayor (misma Wi‑Fi)”.</p>
+                </div>
+            </div>
+            
+            <!-- 1. GESTIÓN DE INVENTARIO Y PRODUCTOS -->
+            <div id="inventarioPanel" class="panel tabContent" style="display:none;">
+                <div class="admin-page-head">
+                    <div>
+                        <h3>Inventario / Productos</h3>
+                        <p class="admin-page-sub">Ropa, abastos, supermercado o ferretería: elige unidad (unidad, kg, litro…) y tallas solo si aplica.</p>
+                    </div>
+                    <button type="button" class="btn primary fuga-open-btn" id="btnAbrirFuga">
+                        Registrar fuga
+                    </button>
+                </div>
+                <div class="admin-stack">
+                <div class="admin-card">
+                    <h4 class="admin-card-title">Registrar producto</h4>
+                    <form id="form-producto-admin" enctype="multipart/form-data" class="admin-form-grid">
+                        <div class="admin-field">
+                            <label>Nombre *</label>
+                            <input id="prodNombre" placeholder="Ej: Arroz, Blusa, Aceite" class="input" required>
+                        </div>
+                        <div class="admin-field">
+                            <label>Marca / Fabricante</label>
+                            <input id="prodMarca" placeholder="Opcional (Genérico)" class="input">
+                        </div>
+                        <div class="admin-field">
+                            <label>Categoría *</label>
+                            <select id="prodCategoria" class="input" required>
+                                <option value="">Selecciona categoría</option>
+                            </select>
+                        </div>
+                        <div class="admin-field">
+                            <label>Proveedor</label>
+                            <select id="prodProveedor" class="input">
+                                <option value="">Sin proveedor</option>
+                            </select>
+                        </div>
+                        <div class="admin-field">
+                            <label>Precio venta base ($) *</label>
+                            <input id="prodPrecio" placeholder="0.00" type="number" step="0.01" min="0" class="input" required>
+                            <small id="prodPrecioIvaHint" style="color:#64748b;display:block;margin-top:4px;">Precio base. Si activas IVA en Impuestos, se sumará al público.</small>
+                            <div id="prodPrecioPublicoWrap" class="prod-precio-publico" style="display:none;">
+                              <strong id="prodPrecioPublico">—</strong>
+                            </div>
+                        </div>
+                        <div class="admin-field">
+                            <label>Unidad de medida *</label>
+                            <select id="prodUnidad" class="input" required>
+                                <option value="UNIDAD">Unidad (pieza)</option>
+                                <option value="KILO">Kilo (kg)</option>
+                                <option value="GRAMO">Gramo (g)</option>
+                                <option value="LITRO">Litro (L)</option>
+                                <option value="METRO">Metro (m)</option>
+                                <option value="CAJA">Caja</option>
+                                <option value="PAQUETE">Paquete</option>
+                            </select>
+                        </div>
+                        <div class="admin-field" id="prodEmpaqueWrap" style="display:none;">
+                            <label id="prodEmpaqueLabel">Unidades por caja *</label>
+                            <input id="prodUnidadesEmpaque" type="number" step="0.001" min="0.001" class="input" placeholder="Ej: 12, 24, 48…">
+                            <small style="color:#64748b;display:block;margin-top:4px;">Cuántas piezas/unidades trae cada caja o paquete</small>
+                        </div>
+                        <div class="admin-field">
+                            <label>Stock inicial</label>
+                            <input id="prodStock" type="number" step="0.000001" min="0" value="0" class="input" placeholder="En la unidad elegida (ej. cajas)">
+                        </div>
+                        <div class="admin-field">
+                            <label>Stock mínimo (alerta)</label>
+                            <input id="prodStockMinimo" placeholder="0" type="number" step="0.000001" min="0" value="0" class="input">
+                        </div>
+                        <div class="admin-field admin-field-wide barcode-field-card">
+                            <label for="prodCodigoBarras">Código de barras <span class="barcode-scan-badge">Escáner USB listo</span></label>
+                            <div class="barcode-input-row">
+                                <input id="prodCodigoBarras" class="input barcode-input" placeholder="Escanea el código aquí o escríbelo" autocomplete="off">
+                                <button type="button" class="btn secondary barcode-clear-btn" id="prodCodigoBarrasClear" title="Limpiar código">Limpiar</button>
+                            </div>
+                            <small class="barcode-help">Conecta el lector USB, haz clic en este campo y escanea el producto. Quedará guardado al crear el ítem.</small>
+                        </div>
+                        <div class="admin-field admin-field-wide">
+                            <label>Imagen del producto <span id="prodImagenReqMark">*</span></label>
+                            <input id="prodImagen" type="file" accept="image/*" class="input">
+                            <small id="prodImagenHint" style="color:#64748b;display:block;margin-top:4px;">Obligatoria solo si es un producto nuevo. Si ya existe (mismo nombre, marca y categoría), se actualiza sin imagen. No se permite reutilizar la imagen de otro producto.</small>
+                            <div id="prodImagenPreview" class="admin-img-preview" style="display:none;">
+                                <img id="prodImagenPreviewImg" alt="Vista previa">
+                            </div>
+                            <div id="prodImagenDupHint" class="prod-existente-hint" style="display:none;color:#b45309;border-color:#f59e0b;background:#fffbeb;"></div>
+                            <div id="prodExistenteHint" class="prod-existente-hint" style="display:none;"></div>
+                        </div>
+                        <div class="admin-field admin-field-wide">
+                            <button id="btnCrearProd" class="btn primary" type="submit">Guardar producto</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="admin-card">
+                    <div class="admin-card-title-row">
+                        <h4 class="admin-card-title">Listado</h4>
+                        <button type="button" id="btnImprimirTodosPrecios" class="btn primary btn-print-all" onclick="imprimirTodasEtiquetasProductos()">Imprimir todos los precios</button>
+                    </div>
+                    <div class="list-search">
+                        <input id="prodBuscar" placeholder="Buscar por nombre, marca o código..." class="input" type="text">
+                    </div>
+                    <div id="adminProductos" class="list">
+                        <div class="item">Cargando lista de productos...</div>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- 2. CATÁLOGOS: TALLAS, CATEGORÍAS, PROVEEDORES -->
+            <div id="catalogoPanel" class="panel tabContent" style="display:none;">
+                <div class="admin-page-head">
+                    <div>
+                        <h3>Catálogos</h3>
+                        <p class="admin-page-sub">Categorías · Tallas (ropa) · Proveedores</p>
+                    </div>
+                </div>
+
+                <nav class="catalog-subnav" aria-label="Submenú Catálogos">
+                    <button type="button" id="cat-tab-categorias" class="catalog-tab active" onclick="switchCatalogTab('categorias')">Categorías</button>
+                    <button type="button" id="cat-tab-tallas" class="catalog-tab" onclick="switchCatalogTab('tallas')">Tallas</button>
+                    <button type="button" id="cat-tab-proveedores" class="catalog-tab" onclick="switchCatalogTab('proveedores')">Proveedores</button>
+                </nav>
+
+                <div class="admin-stack">
+                <!-- Gestión de Categorías -->
+                <div id="catalog-categorias" class="catalog-section admin-card">
+                    <h4 class="admin-card-title">Gestión de categorías</h4>
+                    <form id="form-categoria" class="catalog-form admin-form-grid">
+                        <div class="admin-field admin-field-wide">
+                            <label>Nueva categoría</label>
+                            <input id="catNombre" name="catNombre" placeholder="Ej: Camisetas, Abastos…" class="input" required>
+                        </div>
+                        <div class="admin-field">
+                            <label>&nbsp;</label>
+                            <button id="btnCrearCat" class="btn primary catalog-submit" type="submit">Crear categoría</button>
+                        </div>
+                    </form>
+                    <div class="list-search">
+                        <input id="buscarCategoria" placeholder="Buscar categorías..." class="input" type="text">
+                    </div>
+                    <div id="catalogoCategorias" class="list scroll-list catalog-list">
+                        <div class="item"><span>Cargando categorías...</span></div>
+                    </div>
+                </div>
+
+                <!-- Gestión de Tallas -->
+                <div id="catalog-tallas" class="catalog-section admin-card" style="display:none;">
+                    <h4 class="admin-card-title">Gestión de tallas</h4>
+                    <form id="form-talla" class="catalog-form catalog-form-grid admin-form-grid">
+                        <div class="admin-field">
+                            <label>Nombre</label>
+                            <input id="tallaNombre" name="tallaNombre" placeholder="S, M, L, XL, 38…" class="input" required maxlength="10">
+                        </div>
+                        <div class="admin-field">
+                            <label>Ajuste</label>
+                            <select id="tallaAjuste" name="tallaAjuste" class="input" required>
+                                <option value="">Ajuste</option>
+                                <option value="Slim">Slim Fit</option>
+                                <option value="Regular">Regular Fit</option>
+                                <option value="Oversized">Oversized</option>
+                            </select>
+                        </div>
+                        <div class="admin-field">
+                            <label>Pecho (cm)</label>
+                            <input id="tallaPecho" name="tallaPecho" placeholder="Pecho (cm)" class="input" type="number" min="0">
+                        </div>
+                        <div class="admin-field">
+                            <label>Cintura (cm)</label>
+                            <input id="tallaCintura" name="tallaCintura" placeholder="Cintura (cm)" class="input" type="number" min="0">
+                        </div>
+                        <div class="admin-field">
+                            <label>Cadera (cm)</label>
+                            <input id="tallaCadera" name="tallaCadera" placeholder="Cadera (cm)" class="input" type="number" min="0">
+                        </div>
+                        <div class="admin-field">
+                            <label>Largo (cm)</label>
+                            <input id="tallaLargo" name="tallaLargo" placeholder="Largo (cm)" class="input" type="number" min="0">
+                        </div>
+                        <div class="admin-field">
+                            <label>&nbsp;</label>
+                            <button id="btnCrearTalla" class="btn primary catalog-submit" type="submit">Crear talla</button>
+                        </div>
+                    </form>
+                    <div class="list-search">
+                        <input id="buscarTalla" placeholder="Buscar tallas..." class="input" type="text">
+                    </div>
+                    <div id="catalogoTallas" class="list scroll-list catalog-list">
+                        <div class="item"><span>Cargando tallas...</span></div>
+                    </div>
+                </div>
+
+                <!-- Gestión de Proveedores -->
+                <div id="catalog-proveedores" class="catalog-section admin-card" style="display:none;">
+                    <h4 class="admin-card-title">Gestión de proveedores</h4>
+                    <form id="form-proveedor" class="catalog-form catalog-form-grid admin-form-grid">
+                        <div class="admin-field">
+                            <label>Nombre</label>
+                            <input id="provNombre" name="provNombre" placeholder="Nombre del proveedor" class="input" required>
+                        </div>
+                        <div class="admin-field">
+                            <label>Contacto</label>
+                            <input id="provContacto" name="provContacto" placeholder="Contacto" class="input">
+                        </div>
+                        <div class="admin-field">
+                            <label>Teléfono</label>
+                            <input id="provTelefono" name="provTelefono" placeholder="Teléfono" class="input">
+                        </div>
+                        <div class="admin-field">
+                            <label>&nbsp;</label>
+                            <button id="btnCrearProv" class="btn primary catalog-submit" type="submit">Crear proveedor</button>
+                        </div>
+                    </form>
+                    <div class="list-search">
+                        <input id="buscarProveedor" placeholder="Buscar proveedores..." class="input" type="text">
+                    </div>
+                    <div id="catalogoProveedores" class="list scroll-list catalog-list">
+                        <div class="item"><span>Cargando proveedores...</span></div>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- 3. TRANSACCIONES Y REPORTES -->
+            <div id="transaccionesPanel" class="panel tabContent" style="display:none;">
+                <h2 style="color: #3b82f6;">Reportes y Movimientos</h2>
+                <!-- Reportes Gerenciales -->
+                <h3>Indicadores Gerenciales</h3>
+                <ul>
+                  <li>Rotación de Inventario</li>
+                  <li>Análisis de Ventas por Temporada (seleccionable)</li>
+                  <li>Control de Margen de Ganancias por Categoría</li>
+                  <li>Reporte de Utilidad por Producto</li>
+                </ul>
+                <!-- Placeholder para Movimientos de Caja -->
+                <h3>Movimientos Contables y de Caja</h3>
+                <div class="list-search">
+                    <input id="buscarCaja" placeholder="Buscar movimientos de caja..." class="input" type="text">
+                </div>
+                <div id="reporteCaja" class="list">
+                    <div class="item">Cargando movimientos contables...</div>
+                </div>
+                <!-- Placeholder para Devoluciones -->
+                <h3>Gestión de Devoluciones (Clave requerida)</h3>
+                <form id="form-devolucion">
+                  <label>Clave de acceso:<input type="password" id="claveDevolucion" required></label>
+                  <button type="submit" class="btn secondary">Acceder</button>
+                </form>
+                <div id="panelDevoluciones" style="display:none;">
+                  <label>Buscar venta por fecha y hora:<input type="datetime-local" id="buscaVentaFecha"></label>
+                  <button id="btnBuscarVenta" class="btn">Buscar Venta</button>
+                  <div id="devolucionResultados"></div>
+                </div>
+            </div>
+            
+            <!-- PANEL DE COMPRAS -->
+            <div id="comprasPanel" class="panel tabContent" style="display:none;">
+                <div class="admin-page-head">
+                    <div>
+                        <h3>Gestión de Compras</h3>
+                        <p class="admin-page-sub">Registra compras a proveedores, abonos parciales y consulta el historial.</p>
+                    </div>
+                </div>
+                <div class="admin-stack">
+                    <div class="admin-card">
+                        <h4 class="admin-card-title">Registrar nueva compra</h4>
+                        <form id="form-compra">
+                            <div class="admin-form-grid">
+                                <p class="admin-subgroup-title">Datos de la compra</p>
+                                <div class="admin-field">
+                                    <label>Proveedor</label>
+                                    <select id="compraProveedor" class="input" required>
+                                        <option value="">Selecciona Proveedor</option>
+                                    </select>
+                                </div>
+                                <div class="admin-field">
+                                    <label>Fecha de Compra</label>
+                                    <input type="date" id="compraFecha" class="input" required>
+                                </div>
+                                <div class="admin-field">
+                                    <label>Nº factura proveedor</label>
+                                    <input type="text" id="compraNumeroFactura" class="input" placeholder="Opcional">
+                                </div>
+                                <div class="admin-field">
+                                    <label>Fecha emisión factura</label>
+                                    <input type="date" id="compraFechaEmision" class="input">
+                                </div>
+                                <div class="admin-field">
+                                    <label>Estado de Pago</label>
+                                    <select id="compraEstadoPago" class="input" required onchange="toggleCompraEstadoPago()">
+                                        <option value="Pendiente">Pendiente</option>
+                                        <option value="Parcial">Parcial (abono al proveedor)</option>
+                                        <option value="Pagada">Pagada</option>
+                                    </select>
+                                </div>
+                                <div class="admin-field" id="fieldCompraMontoParcial" style="display:none;">
+                                    <label>Monto abonado al proveedor ($)</label>
+                                    <input type="number" id="compraMontoPagado" class="input" step="0.01" min="0.01" placeholder="Ej: 50.00">
+                                    <small id="compraMontoParcialHint" style="display:block;margin-top:4px;color:#64748b;font-size:0.82em;">
+                                        Debe ser mayor a 0 y menor que el total de la compra.
+                                    </small>
+                                </div>
+
+                                <p class="admin-subgroup-title">Productos de la compra</p>
+                                <div class="admin-field admin-field-wide">
+                                    <div id="compraItems" class="list" style="max-height:300px;">
+                                        <div class="item">Agrega productos a la compra</div>
+                                    </div>
+                                </div>
+                                <div class="admin-field">
+                                    <label>Producto</label>
+                                    <select id="compraProducto" class="input">
+                                        <option value="">Selecciona Producto</option>
+                                    </select>
+                                </div>
+                                <div class="admin-field">
+                                    <label>Talla</label>
+                                    <select id="compraTalla" class="input">
+                                        <option value="">Selecciona Talla</option>
+                                    </select>
+                                </div>
+                                <div class="admin-field">
+                                    <label>Cantidad</label>
+                                    <input type="number" id="compraCantidad" placeholder="Cantidad" class="input" min="1">
+                                </div>
+                                <div class="admin-field">
+                                    <label>Costo unitario</label>
+                                    <input type="number" id="compraCosto" placeholder="Costo Unitario" class="input" step="0.01" min="0">
+                                </div>
+                                <div class="admin-field">
+                                    <label>&nbsp;</label>
+                                    <button type="button" id="btnAgregarItemCompra" class="btn secondary">Agregar</button>
+                                </div>
+                            </div>
+                            <div class="admin-card-foot">
+                                <h4 class="admin-total">Total: $<span id="compraTotal">0.00</span></h4>
+                                <button type="submit" id="btnRegistrarCompra" class="btn primary">Registrar Compra</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="admin-card">
+                        <h4 class="admin-card-title">Historial de compras</h4>
+                        <div class="list-search">
+                            <input id="buscarCompraHistorial" placeholder="Buscar compras..." class="input" type="text">
+                        </div>
+                        <div id="listaCompras" class="list">
+                            <div class="item">Cargando compras...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL DE VENTAS -->
+            <div id="ventasPanel" class="panel tabContent" style="display:none;">
+                <div class="admin-page-head">
+                    <div>
+                        <h3>Historial de ventas</h3>
+                        <p class="admin-page-sub">Consulta ventas por cliente, fecha o monto. Puedes eliminar una venta para revertir stock.</p>
+                    </div>
+                </div>
+                <div class="admin-stack">
+                    <div class="admin-card">
+                        <h4 class="admin-card-title">Listado de ventas</h4>
+                        <div class="list-search">
+                            <input id="buscarVentaAdmin" placeholder="Buscar ventas por cliente, fecha..." class="input" type="text">
+                        </div>
+                        <div id="listaVentasAdmin" class="list">
+                            <div class="item">Cargando ventas...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL DE CLIENTES -->
+            <div id="clientesPanel" class="panel tabContent" style="display:none;">
+                <div class="admin-page-head">
+                    <div>
+                        <h3>Gestión de clientes</h3>
+                        <p class="admin-page-sub">Registra clientes y consulta su historial de compras.</p>
+                    </div>
+                </div>
+                <div class="admin-stack">
+                    <div class="admin-card">
+                        <h4 class="admin-card-title">Registrar nuevo cliente</h4>
+                        <form id="form-cliente" class="admin-form-grid">
+                            <div class="admin-field">
+                                <label>Nombre Completo</label>
+                                <input type="text" id="clienteNombre" class="input" required>
+                            </div>
+                            <div class="admin-field">
+                                <label>Cédula</label>
+                                <input type="text" id="clienteCedula" class="input">
+                            </div>
+                            <div class="admin-field">
+                                <label>Teléfono</label>
+                                <input type="tel" id="clienteTelefono" class="input">
+                            </div>
+                            <div class="admin-field">
+                                <label>Email</label>
+                                <input type="email" id="clienteEmail" class="input">
+                            </div>
+                            <div class="admin-field admin-field-wide">
+                                <button type="submit" class="btn primary">Registrar Cliente</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="admin-card">
+                        <h4 class="admin-card-title">Listado de clientes</h4>
+                        <div class="list-search">
+                            <input id="buscarClienteAdmin" placeholder="Buscar clientes..." class="input" type="text">
+                        </div>
+                        <div id="listaClientesAdmin" class="list">
+                            <div class="item">Cargando clientes...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL DE PROMOCIONES -->
+            <div id="promocionesPanel" class="panel tabContent" style="display:none;">
+                <div class="admin-page-head">
+                    <div>
+                        <h3>Gestión de promociones</h3>
+                        <p class="admin-page-sub">Crea descuentos por porcentaje, monto fijo o compra X lleva Y.</p>
+                    </div>
+                </div>
+                <div class="admin-stack">
+                    <div class="admin-card">
+                        <h4 class="admin-card-title">Crear nueva promoción</h4>
+                        <form id="form-promocion" class="admin-form-grid">
+                            <div class="admin-field">
+                                <label>Nombre de la Promoción</label>
+                                <input type="text" id="promoNombre" class="input" required>
+                            </div>
+                            <div class="admin-field">
+                                <label>Tipo de Promoción</label>
+                                <select id="promoTipo" class="input" required>
+                                    <option value="DESCUENTO_PORCENTAJE">Descuento Porcentaje</option>
+                                    <option value="DESCUENTO_FIJO">Descuento Fijo</option>
+                                    <option value="COMPRA_X_LLEVA_Y">Compra X Lleva Y</option>
+                                </select>
+                            </div>
+                            <div class="admin-field">
+                                <label>Valor (%) o Monto ($)</label>
+                                <input type="number" id="promoValor" class="input" step="0.01" required>
+                            </div>
+                            <div id="promoParams" class="admin-field" style="display:none;">
+                                <label>Compra X / Lleva Y</label>
+                                <div style="display:flex;gap:8px;">
+                                    <input type="number" id="promoParamX" class="input" min="1" placeholder="X">
+                                    <input type="number" id="promoParamY" class="input" min="0" placeholder="Y">
+                                </div>
+                            </div>
+                            <div class="admin-field">
+                                <label>Fecha Inicio</label>
+                                <input type="date" id="promoFechaInicio" class="input" required>
+                            </div>
+                            <div class="admin-field">
+                                <label>Fecha Fin</label>
+                                <input type="date" id="promoFechaFin" class="input" required>
+                            </div>
+                            <div class="admin-field">
+                                <label>Aplicar a</label>
+                                <select id="promoAplicarA" class="input">
+                                    <option value="">Todas las categorías</option>
+                                </select>
+                            </div>
+                            <div class="admin-field">
+                                <label>Producto (opcional)</label>
+                                <select id="promoProducto" class="input">
+                                    <option value="">Selecciona producto (opcional)</option>
+                                </select>
+                            </div>
+                            <div class="admin-field">
+                                <label>Monto Mínimo de Compra</label>
+                                <input type="number" id="promoMinimoCompra" class="input" step="0.01" value="0">
+                            </div>
+                            <div class="admin-field admin-field-wide">
+                                <label>Descripción (opcional)</label>
+                                <textarea id="promoDescripcion" class="input" rows="3" placeholder="Descripción breve de la promoción, condiciones, restricciones, etc."></textarea>
+                            </div>
+                            <div class="admin-field">
+                                <label><input type="checkbox" id="promoActiva" checked> Activa</label>
+                            </div>
+                            <div class="admin-field">
+                                <label>&nbsp;</label>
+                                <button type="submit" id="promoSubmitBtn" class="btn primary">Crear Promoción</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="admin-card">
+                        <h4 class="admin-card-title">Promociones activas</h4>
+                        <div class="list-search">
+                            <input id="buscarPromocion" placeholder="Buscar promociones..." class="input" type="text">
+                        </div>
+                        <div id="listaPromociones" class="list">
+                            <div class="item">Cargando promociones...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL DE CONTABILIDAD -->
+            <div id="contabilidadPanel" class="panel tabContent" style="display:none;">
+                <div class="admin-page-head">
+                    <div>
+                        <h3>Contabilidad</h3>
+                        <p class="admin-page-sub">Libro de trabajo: ingresos, pagos a proveedores y control de caja.</p>
+                    </div>
+                </div>
+
+                <div class="conta-hub-grid">
+                    <button type="button" class="conta-hub-card" onclick="switchTab('cuentas_pagar'); return false;">
+                        <span class="conta-hub-ico">📝</span>
+                        <strong>Libro de proveedores</strong>
+                        <span>Cuenta corriente por proveedor: compras, pagos y saldo.</span>
+                    </button>
+                    <button type="button" class="conta-hub-card" onclick="document.getElementById('contaIngresosBlock')?.scrollIntoView({behavior:'smooth'}); return false;">
+                        <span class="conta-hub-ico">💰</span>
+                        <strong>Ingresos por ventas</strong>
+                        <span>Registro de cobros del período (mes, trimestre o año).</span>
+                    </button>
+                    <button type="button" class="conta-hub-card" onclick="switchTab('caja'); return false;">
+                        <span class="conta-hub-ico">🏦</span>
+                        <strong>Control de caja</strong>
+                        <span>Movimientos de ingreso y egreso de caja.</span>
+                    </button>
+                </div>
+
+                <div class="admin-stack" style="margin-top:4px;">
+                <div class="admin-card" id="contaIngresosBlock">
+                    <div class="admin-card-title-row">
+                        <h4 class="admin-card-title">Ingresos por ventas</h4>
+                        <select id="selectPeriodoIngresos" class="input" style="width:auto;">
+                            <option value="mes">Mes Actual</option>
+                            <option value="trimestre">Trimestre</option>
+                            <option value="anual">Año Actual</option>
+                        </select>
+                    </div>
+                    <div id="tablaIngresos" class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th class="num">Monto</th>
+                                    <th>Tipo de Pago</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyIngresos">
+                                <tr><td colspan="3" style="text-align:center;">Cargando datos...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="admin-card">
+                    <div class="admin-card-title-row">
+                        <h4 class="admin-card-title">Pagos a proveedores (libro)</h4>
+                        <button type="button" class="btn secondary" onclick="switchTab('cuentas_pagar'); return false;">Abrir libro proveedores</button>
+                    </div>
+                    <div id="tablaPagosProveedores" class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Proveedor</th>
+                                    <th>Compra / Factura</th>
+                                    <th class="num">Monto</th>
+                                    <th>Método</th>
+                                    <th>Referencia</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyPagosProveedores">
+                                <tr><td colspan="6" style="text-align:center;">Cargando…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- PANEL LIBRO DE PROVEEDORES (cuenta corriente) -->
+            <div id="cuentas_pagarPanel" class="panel tabContent" style="display:none;">
+                <div class="admin-page-head libro-prov-head">
+                    <div>
+                        <h3>Libro de proveedores</h3>
+                        <p class="admin-page-sub">Cuenta corriente contable: seleccione un proveedor para ver Debe, Haber y saldo.</p>
+                    </div>
+                    <button type="button" class="btn secondary" onclick="switchTab('contabilidad'); return false;">← Volver a Contabilidad</button>
+                </div>
+
+                <div class="libro-prov-toolbar">
+                    <label for="selectLibroProveedor">Proveedor</label>
+                    <select id="selectLibroProveedor" class="input" onchange="cargarLibroProveedor()">
+                        <option value="">— Seleccione un proveedor —</option>
+                    </select>
+                </div>
+
+                <div class="libro-contable" id="libroProveedorWrap">
+                    <div class="libro-contable-title">
+                        <span class="libro-contable-folio">Cuenta corriente</span>
+                        <strong id="libroProveedorNombre">—</strong>
+                    </div>
+                    <div class="libro-contable-resumen" id="libroProveedorResumen" hidden>
+                        <div><span>Total Debe</span><b id="libroTotalDebe">$0.00</b></div>
+                        <div><span>Total Haber</span><b id="libroTotalHaber">$0.00</b></div>
+                        <div><span>Saldo</span><b id="libroSaldo">$0.00</b></div>
+                    </div>
+                    <div class="libro-contable-scroll">
+                        <table class="libro-contable-tabla">
+                            <thead>
+                                <tr>
+                                    <th class="col-fecha">Fecha</th>
+                                    <th class="col-concepto">Concepto</th>
+                                    <th class="col-num">Debe</th>
+                                    <th class="col-num">Haber</th>
+                                    <th class="col-num">Saldo</th>
+                                    <th class="col-acc"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyLibroProveedor">
+                                <tr class="libro-empty">
+                                    <td colspan="6">Seleccione un proveedor para abrir su libro.</td>
+                                </tr>
+                            </tbody>
+                            <tfoot id="tfootLibroProveedor" hidden>
+                                <tr>
+                                    <td colspan="2">Totales</td>
+                                    <td class="col-num" id="libroFootDebe">$0.00</td>
+                                    <td class="col-num" id="libroFootHaber">$0.00</td>
+                                    <td class="col-num" id="libroFootSaldo">$0.00</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Modal para registrar pago -->
+                <div id="modalRegistrarPago" class="modal" style="display:none;">
+                    <div class="modal-content">
+                        <span class="close" onclick="cerrarModal('modalRegistrarPago')">&times;</span>
+                        <h3>Registrar Pago</h3>
+                        <form id="formRegistrarPago">
+                            <input type="hidden" id="pagoIdCompra">
+                            <div class="field">
+                                <label>Estado de Pago</label>
+                                <select id="pagoEstado" class="input" onchange="toggleMontoPago()">
+                                    <option value="PARCIAL">Parcial</option>
+                                    <option value="PAGADA">Completa</option>
+                                </select>
+                            </div>
+                            <div class="field" id="fieldMontoPago">
+                                <label>Monto a Pagar ($)</label>
+                                <input type="number" id="pagoMonto" class="input" step="0.01" min="0.01" required oninput="calcularMontoRestante()">
+                                <small style="display:block;margin-top:4px;">
+                                    <strong>Monto pendiente total:</strong> $<span id="pagoMontoPendiente">0.00</span><br>
+                                    <strong>Quedará debiendo:</strong> $<span id="pagoMontoRestante" style="color:var(--error);font-weight:bold;">0.00</span>
+                                </small>
+                            </div>
+                            <div class="field">
+                                <label>Método de Pago</label>
+                                <select id="pagoMetodo" class="input" required>
+                                    <option value="EFECTIVO">Efectivo</option>
+                                    <option value="TRANSFERENCIA">Transferencia</option>
+                                    <option value="CHEQUE">Cheque</option>
+                                    <option value="PAGO_MOVIL">Pago Móvil</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label>Referencia</label>
+                                <input type="text" id="pagoReferencia" class="input" placeholder="Número de referencia, cheque, etc.">
+                            </div>
+                            <div class="field">
+                                <label>Notas</label>
+                                <textarea id="pagoNotas" class="input" rows="3" placeholder="Notas adicionales..."></textarea>
+                            </div>
+                            <button type="submit" class="btn primary">Registrar Pago</button>
+                            <button type="button" class="btn secondary" onclick="cerrarModal('modalRegistrarPago')">Cancelar</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL DE CONTROL DE CAJA -->
+            <div id="cajaPanel" class="panel tabContent" style="display:none;">
+                <div class="admin-page-head">
+                    <div>
+                        <h3>Control de caja</h3>
+                        <p class="admin-page-sub">Consulta ingresos y egresos registrados en caja.</p>
+                    </div>
+                </div>
+                <div class="admin-stack">
+                    <div class="admin-card">
+                        <h4 class="admin-card-title">Movimientos de caja</h4>
+                        <div class="list-search">
+                            <input id="buscarMovimientoCaja" placeholder="Buscar movimientos..." class="input" type="text">
+                        </div>
+                        <div id="listaMovimientosCaja" class="list">
+                            <div class="item">Cargando movimientos...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CENTRO DE REPORTES -->
+            <div id="reportesPanel" class="panel tabContent" style="display:none;">
+                <div class="rpt-hub-head">
+                    <div>
+                        <h2>Centro de reportes</h2>
+                        <p>Elige un reporte y descárgalo en PDF o CSV.</p>
+                    </div>
+                </div>
+                <div class="rpt-hub-workspace">
+                    <aside class="rpt-flyout" id="reporteFlyout">
+                        <button type="button" id="rptFlyoutToggle" class="rpt-flyout-toggle" aria-expanded="false" title="Abrir menú de reportes">
+                            <span class="rpt-flyout-toggle-icon">📊</span>
+                            <span class="rpt-flyout-toggle-text">Elegir reporte</span>
+                            <span class="rpt-flyout-chevron" aria-hidden="true">›</span>
+                        </button>
+                        <div class="rpt-flyout-panel" id="reporteFlyoutPanel">
+                            <div class="rpt-flyout-panel-head">
+                                <span>Menú de reportes</span>
+                                <button type="button" id="rptFlyoutClose" class="rpt-flyout-close" title="Cerrar">×</button>
+                            </div>
+                            <div id="reporteHubGrid" class="rpt-menu"></div>
+                        </div>
+                    </aside>
+                    <div id="reporteHubDetail" class="chart-container rpt-detail">
+                        <div class="chart-header rpt-detail-head">
+                            <h4 class="chart-title" id="reporteHubTitle">Detalle del reporte</h4>
+                            <div class="rpt-header-actions" id="reporteHubActions" hidden>
+                                <button type="button" class="btn primary rpt-dl-btn default-report-action" id="rptHubPdfBtn">Descargar PDF</button>
+                                <button type="button" class="btn secondary rpt-dl-btn" id="rptHubCsvBtn">Descargar CSV</button>
+                                <button type="button" class="btn secondary rpt-dl-btn default-report-action" id="rptHubPrintBtn">Imprimir</button>
+                                <button type="button" class="btn primary rpt-dl-btn daily-payment-action" id="rptHubPaymentPdfBtn" hidden>PDF carta</button>
+                                <button type="button" class="btn secondary rpt-dl-btn daily-payment-action" id="rptHubPaymentPrint57Btn" hidden>Imprimir 57 mm</button>
+                                <button type="button" class="btn secondary rpt-dl-btn daily-payment-action" id="rptHubPaymentPrint80Btn" hidden>Imprimir 80 mm</button>
+                            </div>
+                        </div>
+                        <div id="reporteHubBody">
+                            <div class="rpt-empty">Toca <strong>Elegir reporte</strong> para ver y descargar un análisis</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Paneles legacy (redirigen al hub vía switchTab) -->
+            <div id="reporte-comprasPanel" class="panel tabContent" style="display:none;"></div>
+            <div id="reporte-utilidadPanel" class="panel tabContent" style="display:none;"></div>
+            <div id="reporte-gananciasPanel" class="panel tabContent" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerta stock bajo al abrir admin -->
+    <div id="stockAlertModal" class="modal" style="display:none;" role="dialog" aria-labelledby="stockAlertTitle" aria-modal="true">
+        <div class="modal-content" style="max-width:520px;">
+            <span class="close" id="stockAlertClose" role="button" tabindex="0" aria-label="Cerrar">&times;</span>
+            <h3 id="stockAlertTitle" style="margin-top:0;color:#b45309;">⚠ Stock bajo</h3>
+            <p style="color:#64748b;margin:0 0 12px;">Hay productos con inventario en o por debajo del mínimo configurado:</p>
+            <div id="stockAlertList" class="list" style="max-height:280px;overflow-y:auto;margin-bottom:16px;"></div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+                <button type="button" class="btn secondary" id="stockAlertDismiss">Entendido</button>
+                <button type="button" class="btn primary" id="stockAlertGoInv">Ir a inventario</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="fugaModal" class="fuga-overlay" aria-hidden="true">
+        <section class="fuga-dialog" role="dialog" aria-modal="true" aria-labelledby="fugaTitle">
+            <header class="fuga-dialog-head">
+                <div>
+                    <span class="fuga-eyebrow">CONTROL DE INVENTARIO</span>
+                    <h2 id="fugaTitle">Registrar una salida</h2>
+                    <p>Consumo, producto dañado o venta a precio especial.</p>
+                </div>
+                <button type="button" class="fuga-close" id="btnCerrarFuga" aria-label="Cerrar">×</button>
+            </header>
+            <div class="fuga-dialog-body">
+                <form id="formFuga" class="fuga-form">
+                    <div class="fuga-notice">
+                        Las salidas descuentan existencias. Las ventas especiales también se registran en ventas y caja.
+                    </div>
+                    <div class="fuga-form-grid">
+                        <div class="admin-field">
+                            <label for="fugaTipo">Tipo de salida</label>
+                            <select id="fugaTipo" class="input" required>
+                                <option value="CONSUMO">Consumo interno</option>
+                                <option value="DANIO">Producto dañado o roto</option>
+                                <option value="VENTA_ESPECIAL">Venta a precio especial</option>
+                            </select>
+                        </div>
+                        <div class="admin-field">
+                            <label for="fugaBuscarProducto">Producto o código de barras</label>
+                            <input id="fugaBuscarProducto" class="input" autocomplete="off" placeholder="Escanea o escribe el nombre">
+                            <small class="fuga-help">Conecta el lector, enfoca este campo y escanea.</small>
+                        </div>
+                        <div class="admin-field admin-field-wide">
+                            <label for="fugaProducto">Producto</label>
+                            <select id="fugaProducto" class="input">
+                                <option value="">Busca o escanea un producto</option>
+                            </select>
+                            <small id="fugaStock" class="fuga-help">El stock disponible aparecerá al seleccionar el producto.</small>
+                        </div>
+                        <div class="admin-field" id="fugaTallaWrap" hidden>
+                            <label for="fugaTalla">Talla</label>
+                            <select id="fugaTalla" class="input"></select>
+                        </div>
+                        <div class="admin-field">
+                            <label for="fugaCantidad">Cantidad</label>
+                            <input id="fugaCantidad" class="input" type="number" min="0.000001" step="0.000001" value="1" required>
+                        </div>
+                        <div class="admin-field fuga-sale-field" id="fugaPrecioWrap" hidden>
+                            <label for="fugaPrecio">Precio especial base por unidad ($)</label>
+                            <input id="fugaPrecio" class="input" type="number" min="0.01" step="0.01">
+                            <small class="fuga-help">Se aplicarán las mismas reglas de IVA de las ventas normales.</small>
+                        </div>
+                        <div class="admin-field fuga-sale-field" id="fugaPagoWrap" hidden>
+                            <label for="fugaPago">Forma de pago</label>
+                            <select id="fugaPago" class="input">
+                                <option value="Efectivo">Efectivo</option>
+                                <option value="Pago Móvil">Pago Móvil</option>
+                                <option value="Transferencia">Transferencia</option>
+                                <option value="Tarjeta">Tarjeta</option>
+                                <option value="Cheque">Cheque</option>
+                            </select>
+                        </div>
+                        <div class="admin-field admin-field-wide">
+                            <label for="fugaMotivo">Nota (opcional)</label>
+                            <input id="fugaMotivo" class="input" maxlength="255" placeholder="Ej.: consumo del personal o empaque roto">
+                        </div>
+                    </div>
+                    <div class="fuga-queue-actions">
+                        <button type="button" class="btn secondary" id="btnAgregarFugaLista">Agregar producto a la lista</button>
+                    </div>
+                    <section class="fuga-queue" aria-labelledby="fugaListaTitulo">
+                        <h3 id="fugaListaTitulo">Productos para registrar</h3>
+                        <div id="fugaListaProductos" class="fuga-queue-list">
+                            <div class="fuga-empty">Agrega productos para preparar el registro.</div>
+                        </div>
+                    </section>
+                    <div id="fugaFeedback" class="fuga-feedback" role="status" aria-live="polite" hidden></div>
+                    <div class="fuga-form-actions">
+                        <button type="button" class="btn secondary" id="btnCancelarFuga">Cancelar</button>
+                        <button type="submit" class="btn primary" id="btnGuardarFuga">Registrar salida</button>
+                    </div>
+                </form>
+                <section class="fuga-history">
+                    <div class="fuga-history-head">
+                        <div>
+                            <h3>Movimientos recientes</h3>
+                            <p>Últimas salidas y ventas especiales registradas.</p>
+                        </div>
+                        <button type="button" class="btn secondary fuga-refresh-btn" id="btnActualizarFugas">Actualizar</button>
+                    </div>
+                    <div id="fugaHistorial" class="fuga-history-list">
+                        <div class="fuga-empty">Cargando movimientos…</div>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="admin-iva.js?v=204"></script>
+    <script src="tasa-dolar-ui.js?v=201"></script>
+    <script src="cliente.js?v=214"></script>
+    <script src="etiquetas-precio.js?v=211"></script>
+    <script src="admin-funcionalidades.js?v=214"></script>
+    <script src="fugas.js?v=311"></script>
+    <script src="reportes.js?v=208"></script>
+    <script src="reportes-hub.js?v=209"></script>
+    <script src="caja-impresora.js?v=221"></script>
+    <script src="comercial-admin.js?v=216"></script>
+    <script src="copias.js?v=1"></script>
+    <script src="admin-user-menu.js?v=208"></script>
+    <script src="admin-mobile.js?v=210"></script>
+    <script>
+    (function() {
+      function syncEmpaqueUI(unidadSel, wrap, label, input) {
+        if (!unidadSel || !wrap) return;
+        const u = (unidadSel.value || '').toUpperCase();
+        const needs = (u === 'CAJA' || u === 'PAQUETE');
+        wrap.style.display = needs ? '' : 'none';
+        if (label) label.textContent = u === 'PAQUETE' ? 'Unidades por paquete *' : 'Unidades por caja *';
+        if (input && !needs) input.value = '';
+        if (input) input.required = needs;
+      }
+      document.addEventListener('DOMContentLoaded', () => {
+        const prodU = document.getElementById('prodUnidad');
+        const editU = document.getElementById('editUnidad');
+        if (prodU) {
+          const run = () => syncEmpaqueUI(prodU, document.getElementById('prodEmpaqueWrap'), document.getElementById('prodEmpaqueLabel'), document.getElementById('prodUnidadesEmpaque'));
+          prodU.addEventListener('change', run);
+          run();
+        }
+        if (editU) {
+          const run = () => syncEmpaqueUI(editU, document.getElementById('editEmpaqueWrap'), document.getElementById('editEmpaqueLabel'), document.getElementById('editUnidadesEmpaque'));
+          editU.addEventListener('change', run);
+          run();
+        }
+      });
+    })();
+    </script>
+</body>
+</html>

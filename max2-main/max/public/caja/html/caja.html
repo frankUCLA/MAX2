@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#2563eb"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-title" content="MAX"/>
+  <link rel="manifest" href="/manifest.webmanifest"/>
+  <link rel="apple-touch-icon" href="/imagen/images.png"/>
+  <title>MAX POS — Caja</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="caja.css?v=211">
+  <script src="max-theme.js"></script>
+  <script src="max-ui-dialogs.js?v=209"></script>
+  <script src="max-pwa.js"></script>
+  <script>
+    // En teléfono no se abre la caja directa: solo login
+    (function () {
+      var m = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
+      if (m) location.replace('index.html');
+    })();
+  </script>
+</head>
+<body class="pos-body">
+  <div id="posApp" class="pos-shell">
+    <!-- Header estilo Valery -->
+    <header class="pos-header">
+      <div class="pos-brand">MAX</div>
+      <div class="pos-meta">
+        <span id="posEmpresa">COMERCIALIZADORA LIVIA DUN</span>
+        <span id="userName" class="pos-seller">—</span>
+        <span id="posCajaModeBadge" class="pos-seller" style="display:none;font-weight:700;">CAJA MAYOR</span>
+        <span id="posClock">—</span>
+        <span id="posPrinterStatus" class="pos-printer-chip off" title="Estado de impresora">Sin impresora</span>
+        <button type="button" id="posConnectPrinter" class="pos-secondary-btn pos-printer-btn" title="Autorizar impresora USB/serial">
+          <svg class="pos-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4h10v4M6 14H4a1 1 0 0 1-1-1v-3a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a1 1 0 0 1-1 1h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><rect x="6" y="14" width="12" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><path d="M17 11h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+          <span>Impresora</span>
+        </button>
+        <span id="rolLabel" class="badge role-badge" style="display:none;">CAJA</span>
+        <span id="statusDisplay" class="status-msg" style="display:none;">Conectado</span>
+      </div>
+      <div class="pos-totals-head">
+        <div class="pos-total-chip" id="posIvaChip" title="IVA" style="display:none;">
+          <span>IVA</span>
+          <strong id="posIvaChipPct">16%</strong>
+        </div>
+        <div class="pos-total-chip">
+          <span>Total $</span>
+          <strong id="posHeaderTotalUsd">0.00</strong>
+        </div>
+        <div class="pos-total-chip accent">
+          <span>Total Bs</span>
+          <strong id="posHeaderTotalBs">0.00</strong>
+        </div>
+      </div>
+      <button id="logoutBtn" class="pos-exit-btn" title="Salir">
+        <svg class="pos-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 7V5a1 1 0 0 1 1-1h8v16h-8a1 1 0 0 1-1-1v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M4 12h10M10 8l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Salir</span>
+      </button>
+    </header>
+
+    <div class="pos-main">
+      <!-- IZQUIERDA: Ticket -->
+      <section class="pos-ticket">
+        <div class="pos-client-card">
+          <div class="pos-client-head">
+            <strong>Datos del cliente</strong>
+            <span class="pos-client-hint">Opcional · puedes vender con o sin registrar cliente</span>
+          </div>
+          <div class="pos-client-grid">
+            <label class="pos-field" for="ventaClienteCedula">
+              <span>Cédula / RIF</span>
+              <input id="ventaClienteCedula" class="pos-input" placeholder="V-12345678" autocomplete="off" />
+            </label>
+            <label class="pos-field pos-field-grow" for="ventaClienteNombre">
+              <span>Nombre completo</span>
+              <input id="ventaClienteNombre" class="pos-input" placeholder="Nombre y apellido" autocomplete="name" />
+            </label>
+            <label class="pos-field" for="ventaClienteTelefono">
+              <span>Teléfono</span>
+              <input id="ventaClienteTelefono" class="pos-input" placeholder="0412-0000000" autocomplete="tel" />
+            </label>
+            <label class="pos-field pos-field-grow" for="ventaClienteDireccion">
+              <span>Dirección</span>
+              <input id="ventaClienteDireccion" class="pos-input" placeholder="Urbanización, calle, casa/local" autocomplete="street-address" />
+            </label>
+            <label class="pos-field pos-field-email" for="ventaClienteEmail">
+              <span>Email</span>
+              <input id="ventaClienteEmail" class="pos-input" type="email" placeholder="correo@ejemplo.com" autocomplete="email" />
+            </label>
+          </div>
+        </div>
+        <div class="pos-search-wrap">
+          <input id="posSearch" class="pos-search" placeholder="Buscar por nombre..." autocomplete="off" />
+          <div class="pos-barcode-row">
+            <span class="pos-scan-status" id="posScanStatus" title="Lector de código de barras">▮▮ Escáner listo</span>
+            <input id="posBarcode" class="pos-search pos-barcode" placeholder="Apunta el lector aquí · o escribe el código + Enter" autocomplete="off" inputmode="none" />
+          </div>
+        </div>
+        <div id="cajaNotif"></div>
+        <div class="pos-ticket-table-wrap">
+          <table class="pos-ticket-table">
+            <thead>
+              <tr>
+                <th>Cant</th>
+                <th>Descripción</th>
+                <th>Precio</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="posTicketBody">
+              <tr class="empty-row"><td colspan="4">Carrito vacío. Toca un producto a la derecha.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Compat: carrito legacy oculto -->
+        <div id="ventaDetalle" class="list" style="display:none;"></div>
+        <div class="pos-ticket-foot">
+          <div>Items: <strong id="posTotalItems">0</strong></div>
+          <div>Líneas: <strong id="posTotalLineas">0</strong></div>
+          <div id="posIvaFoot" class="pos-iva-foot" style="display:none;">
+            <span>Base <strong id="posFootBase">0,00</strong></span>
+            <span>IVA <strong id="posFootIva">0,00</strong></span>
+          </div>
+          <div class="pos-ticket-actions">
+            <button type="button" id="btnVaciarCarrito" class="pos-icon-btn" title="Vaciar">
+              <svg class="pos-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M8 7l1 12h6l1-12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- DERECHA: Grilla de productos -->
+      <section class="pos-catalog">
+        <div class="pos-dept-bar">
+          <button type="button" class="pos-dept-btn active" data-cat="">Todos</button>
+          <div id="posDeptButtons" class="pos-dept-scroll"></div>
+        </div>
+        <div id="posProductGrid" class="pos-grid"></div>
+        <div class="pos-action-bar">
+          <!-- Compat ocultos (más adelante se redefine flujo de pago/cantidad global) -->
+          <input id="ventaCantidad" type="hidden" value="1" />
+          <select id="ventaTipoPago" style="display:none;" aria-hidden="true">
+            <option value="Efectivo Bolívares" selected>Efectivo Bolívares</option>
+            <option value="Pago Móvil">Pago Móvil</option>
+            <option value="Transferencia">Transferencia</option>
+            <option value="Dólares en efectivo">Dólares en efectivo</option>
+            <option value="Punto de venta">Punto de venta</option>
+          </select>
+
+          <button type="button" id="btnVisorPrecio" class="pos-tool-btn" title="Consultar precio">
+            <svg class="pos-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-3.5-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.5 11h5M11 8.5v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span>Visor precio</span>
+          </button>
+          <button type="button" id="btnLimpiarTicket" class="pos-tool-btn danger" title="Borrar todo el ticket">
+            <svg class="pos-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M8 7l1 12h6l1-12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Limpiar</span>
+          </button>
+          <button type="button" id="btnPedidoPendiente" class="pos-tool-btn warn" title="Guardar sin pagar">
+            <svg class="pos-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l3 3v13H6V4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 4v4h4M8 12h8M8 16h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span>Pedido pendiente</span>
+          </button>
+          <button type="button" id="btnVerPendientes" class="pos-tool-btn" title="Ver facturas pendientes">
+            <svg class="pos-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h12v14H4V6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 6V4h12v14h-2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 11h6M7 15h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span>Pendientes</span>
+            <span id="posPendientesBadge" class="pos-pend-badge" style="display:none;">0</span>
+          </button>
+          <button type="button" id="btnPagarVenta" class="pos-pay-btn">
+            <svg class="pos-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M7 15h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <span>F1 Pago</span>
+          </button>
+          <button type="button" id="btnToggleDevoluciones" class="pos-secondary-btn">
+            <svg class="pos-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 4v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Devoluciones</span>
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Campos ocultos para compatibilidad con lógica existente -->
+    <form id="form-venta-caja" style="display:none;" aria-hidden="true">
+      <select id="ventaProducto"><option value="">Selecciona producto</option></select>
+      <select id="ventaCategoria"><option value="">Selecciona categoría</option></select>
+      <select id="ventaTalla"><option value="">Selecciona talla</option></select>
+      <input id="ventaPrecioUnitario" type="number" step="0.01" />
+      <input id="ventaPrecioUnitarioBs" type="text" />
+      <input id="ventaTotalDolar" type="text" />
+      <input id="ventaTotalBs" type="text" />
+      <button id="btnAgregarProducto" type="button">Agregar</button>
+    </form>
+    <div id="tasaManualContainer" style="display:none;" aria-hidden="true">
+      <input id="tasaManual" type="number" step="0.01" />
+      <button type="button" id="btnAplicarTasaManual">Aplicar Tasa</button>
+    </div>
+  </div>
+
+  <!-- Modal talla -->
+  <div id="posTallaModal" class="pos-modal" style="display:none;">
+    <div class="pos-modal-card">
+      <button type="button" class="pos-modal-close" id="posTallaClose">&times;</button>
+      <div class="pos-modal-prod">
+        <img id="posTallaImg" alt="" />
+        <div>
+          <h3 id="posTallaNombre">Producto</h3>
+          <p id="posTallaPrecio"></p>
+        </div>
+      </div>
+      <p class="pos-modal-hint">Selecciona talla</p>
+      <div id="posTallaOptions" class="pos-talla-options"></div>
+      <div class="pos-modal-qty">
+        <label>Cantidad</label>
+        <input type="number" id="posTallaCantidad" min="0.001" step="0.001" value="1" />
+      </div>
+      <button type="button" id="posTallaAdd" class="pos-pay-btn" style="width:100%;margin-top:12px;">Agregar al ticket</button>
+    </div>
+  </div>
+
+  <!-- Modal venta por Bs (kilo / litro) -->
+  <div id="posPesoModal" class="pos-modal" style="display:none;">
+    <div class="pos-modal-card">
+      <button type="button" class="pos-modal-close" id="posPesoClose">&times;</button>
+      <div class="pos-modal-prod">
+        <img id="posPesoImg" alt="" />
+        <div>
+          <h3 id="posPesoNombre">Producto</h3>
+          <p id="posPesoPrecio"></p>
+        </div>
+      </div>
+      <p class="pos-modal-hint" id="posPesoHint">Indica cuántos bolívares lleva el cliente. Se calcula el peso y se descuenta del stock.</p>
+      <label style="font-weight:600;font-size:0.85rem;display:block;margin-top:8px;">Bolívares a cobrar</label>
+      <input type="number" id="posPesoBsInput" class="pos-input" min="0.01" step="0.01" placeholder="Ej: 4000" style="margin-top:6px;font-size:1.25rem;" />
+      <div id="posPesoCalc" style="margin-top:12px;padding:10px 12px;background:#f8fafc;border-radius:8px;font-size:0.95rem;line-height:1.45;">
+        <div><span id="posPesoPrecioLabel">Precio:</span> <strong id="posPesoPrecioBs">—</strong></div>
+        <div>Equivale a: <strong id="posPesoEquiv">—</strong></div>
+        <div>Stock disponible: <strong id="posPesoStock">—</strong></div>
+      </div>
+      <p id="posPesoError" class="pos-gate-msg"></p>
+      <button type="button" id="posPesoAdd" class="pos-pay-btn" style="width:100%;margin-top:12px;">Agregar al ticket</button>
+    </div>
+  </div>
+
+  <!-- Venta con precio manual de Caja Mayor -->
+  <div id="posMayorModal" class="pos-modal" style="display:none;">
+    <div class="pos-modal-card">
+      <button type="button" class="pos-modal-close" id="posMayorClose">&times;</button>
+      <div class="pos-modal-prod">
+        <img id="posMayorImg" alt="" />
+        <div>
+          <h3 id="posMayorNombre">Producto</h3>
+          <p id="posMayorUnidad"></p>
+        </div>
+      </div>
+      <label for="posMayorPrecio" style="font-weight:600;font-size:0.85rem;display:block;margin-top:12px;">Precio manual en bolívares por unidad (antes de IVA)</label>
+      <input type="number" id="posMayorPrecio" class="pos-input" min="1" step="1" inputmode="decimal" style="margin-top:6px;font-size:1.15rem;" />
+      <label for="posMayorCantidad" style="font-weight:600;font-size:0.85rem;display:block;margin-top:12px;">Cantidad a vender</label>
+      <input type="number" id="posMayorCantidad" class="pos-input" min="1" step="1" value="1" inputmode="decimal" style="margin-top:6px;font-size:1.15rem;" />
+      <div id="posMayorTallasWrap" style="display:none;margin-top:12px;">
+        <p class="pos-modal-hint">Selecciona talla</p>
+        <div id="posMayorTallas" class="pos-talla-options"></div>
+      </div>
+      <div id="posMayorStock" style="margin-top:12px;padding:10px 12px;background:#f8fafc;border-radius:8px;font-size:0.9rem;"></div>
+      <p id="posMayorPreview" style="margin:8px 0 0;font-size:0.9rem;color:#475569;"></p>
+      <p id="posMayorError" class="pos-gate-msg"></p>
+      <button type="button" id="posMayorAdd" class="pos-pay-btn" style="width:100%;margin-top:12px;">Agregar al ticket</button>
+    </div>
+  </div>
+
+  <!-- Visor de precio -->
+  <div id="posVisorPrecioModal" class="pos-modal" style="display:none;">
+    <div class="pos-modal-card pos-modal-wide">
+      <button type="button" class="pos-modal-close" id="posVisorClose">&times;</button>
+      <h3 style="margin-top:0;">Visor de precio</h3>
+      <input id="posVisorSearch" class="pos-input" placeholder="Buscar producto por nombre, marca o código…" autocomplete="off" style="width:100%;margin-top:8px;" />
+      <div id="posVisorResults" class="pos-visor-results"></div>
+      <div id="posVisorDetail" class="pos-visor-detail" style="display:none;">
+        <div class="pos-visor-name" id="posVisorNombre">—</div>
+        <div class="pos-visor-prices">
+          <div><span>USD</span><strong id="posVisorUsd">$0.00</strong></div>
+          <div><span>Bs</span><strong id="posVisorBs">0.00</strong></div>
+        </div>
+        <div class="pos-visor-meta" id="posVisorMeta"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pedidos / facturas pendientes -->
+  <div id="posPendientesModal" class="pos-modal" style="display:none;">
+    <div class="pos-modal-card pos-modal-wide">
+      <button type="button" class="pos-modal-close" id="posPendientesClose">&times;</button>
+      <h3 style="margin-top:0;">Facturas pendientes</h3>
+      <p class="pos-modal-hint">Pedidos guardados sin cobrar. Toca uno para recuperarlo al ticket.</p>
+      <div id="posPendientesList" class="pos-pendientes-list"></div>
+    </div>
+  </div>
+
+  <!-- Cambiar cantidad de línea -->
+  <div id="posQtyModal" class="pos-modal" style="display:none;">
+    <div class="pos-modal-card" style="max-width:340px;">
+      <button type="button" class="pos-modal-close" id="posQtyClose">&times;</button>
+      <h3 style="margin-top:0;">Cantidad</h3>
+      <p id="posQtyProductName" class="pos-modal-hint" style="margin-bottom:12px;">—</p>
+      <div class="pos-qty-editor">
+        <button type="button" id="posQtyMinus" class="pos-qty-step">−</button>
+        <input type="number" id="posQtyValue" class="pos-qty-value" min="0.001" step="0.001" value="1" />
+        <button type="button" id="posQtyPlus" class="pos-qty-step">+</button>
+      </div>
+      <button type="button" id="posQtyApply" class="pos-pay-btn" style="width:100%;margin-top:14px;">Aplicar</button>
+      <button type="button" id="posQtyRemove" class="pos-secondary-btn" style="width:100%;margin-top:8px;">Quitar del ticket</button>
+    </div>
+  </div>
+
+  <!-- Desglose de pago (estilo Valery) -->
+  <div id="posPagoModal" class="pos-modal pos-pago-overlay" style="display:none;">
+    <div class="pos-pago-shell">
+      <header class="pos-pago-head">
+        <div>
+          <h2>Desglose de pago</h2>
+          <p id="posPagoClienteMeta">Cliente · Factura</p>
+        </div>
+        <div class="pos-pago-head-totals">
+          <div><span>Base $</span><strong id="posPagoBaseUsd">0.00</strong></div>
+          <div id="posPagoIvaWrap" style="display:none;"><span id="posPagoIvaLabel">IVA</span><strong id="posPagoIvaUsd">0.00</strong></div>
+          <div><span>Total $</span><strong id="posPagoTotalUsd">0.00</strong></div>
+          <div class="accent"><span>Total Bs</span><strong id="posPagoTotalBs">0.00</strong></div>
+        </div>
+      </header>
+      <div class="pos-pago-body">
+        <aside class="pos-pago-methods">
+          <p class="pos-pago-methods-label">Formas de pago</p>
+          <div id="posPagoMethodGrid" class="pos-pago-method-grid"></div>
+        </aside>
+        <section class="pos-pago-main">
+          <div class="pos-pago-restante" id="posPagoRestanteBox">
+            <div>Restante: <strong id="posPagoRestanteBs">0,00</strong> <span>Bs</span></div>
+            <div class="pos-pago-restante-usd">Equiv. <strong id="posPagoRestanteUsd">0,00</strong> <span>$</span></div>
+          </div>
+          <div class="pos-pago-cambio" id="posPagoCambioBox" style="display:none;">
+            Cambio a devolver: <strong id="posPagoCambioTxt">—</strong>
+          </div>
+          <div class="pos-pago-table-wrap">
+            <table class="pos-pago-table">
+              <thead>
+                <tr>
+                  <th>Forma de pago</th>
+                  <th class="r">Monto Bs</th>
+                  <th class="r">Monto $</th>
+                </tr>
+              </thead>
+              <tbody id="posPagoLines">
+                <tr class="empty"><td colspan="3">Selecciona una forma de pago a la izquierda</td></tr>
+              </tbody>
+            </table>
+            <div class="pos-pago-paid">
+              Pagado: <strong id="posPagoPagado">0,00 Bs</strong>
+              <span id="posPagoPagadoUsd" style="margin-left:10px;color:#64748b;"></span>
+            </div>
+          </div>
+          <div class="pos-pago-amount-box" id="posPagoAmountBox" style="display:none;">
+            <label id="posPagoAmountLabel">Monto en Bs</label>
+            <div class="pos-pago-amount-row">
+              <input type="number" id="posPagoAmountInput" class="pos-pago-amount-input" min="0.01" step="0.01" />
+              <button type="button" id="posPagoAmountAdd" class="pos-pay-btn">Agregar</button>
+            </div>
+            <p class="pos-modal-hint" style="margin-top:6px;" id="posPagoAmountHint">Enter para agregar. Si da de más, se calcula el cambio.</p>
+          </div>
+          <div class="pos-pago-footer">
+            <button type="button" id="posPagoDeleteLine" class="pos-secondary-btn">Eliminar forma seleccionada</button>
+            <div class="pos-pago-footer-right">
+              <button type="button" id="posPagoCancel" class="pos-tool-btn">Esc Cancelar</button>
+              <button type="button" id="posPagoConfirm" class="pos-pay-btn pos-pago-confirm" disabled>F9 Registrar</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel devoluciones -->
+  <div id="panelDevolucionesWrap" class="pos-devoluciones" style="display:none;">
+    <div class="dev-card">
+      <div class="dev-hero">
+        <div class="dev-hero-copy">
+          <p class="dev-kicker">Caja · Reembolsos</p>
+          <h3>Devoluciones</h3>
+          <p class="dev-sub">Busca el ticket, elige cuánto devolver y confirma. El dinero se calcula solo y el stock vuelve al inventario.</p>
+          <div class="dev-hero-chips">
+            <span>Plazo 48 horas</span>
+            <span>Stock al instante</span>
+            <span>Clave de supervisor</span>
+          </div>
+        </div>
+        <button type="button" id="btnCerrarDevoluciones" class="dev-close" title="Cerrar" aria-label="Cerrar">×</button>
+      </div>
+      <form id="form-acceso-devoluciones" class="dev-lock">
+        <div class="dev-lock-badge">Acceso protegido</div>
+        <label for="claveDevoluciones">Clave de supervisor</label>
+        <div class="dev-lock-row">
+          <input type="password" id="claveDevoluciones" class="dev-input" placeholder="Escribe la clave" required autocomplete="off">
+          <button type="submit" class="dev-btn dev-btn-primary">Entrar</button>
+        </div>
+        <p id="devolucionLockMsg" class="dev-msg" aria-live="polite"></p>
+      </form>
+      <div id="panelDevoluciones" class="dev-body" style="display:none;">
+        <div class="dev-search">
+          <label for="devolucionNumeroVenta">Número de ticket</label>
+          <div class="dev-lock-row">
+            <input type="number" id="devolucionNumeroVenta" class="dev-input" min="1" placeholder="Ej: 1024" inputmode="numeric">
+            <button type="button" id="btnBuscarVentaDevolucion" class="dev-btn dev-btn-primary">Buscar ticket</button>
+          </div>
+        </div>
+        <p id="devolucionMsg" class="dev-msg" aria-live="polite"></p>
+        <div id="ventasClienteDevolucion" class="dev-results"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal conectar impresora -->
+  <div id="posPrinterModal" class="pos-modal" style="display:none;">
+    <div class="pos-modal-card">
+      <h3 style="margin-top:0;">Conectar impresora</h3>
+      <p class="pos-modal-hint">Elige cómo está instalada la impresora en esta PC de caja.</p>
+      <label style="font-weight:600;font-size:0.85rem;display:block;margin-top:8px;">Ancho del papel (factura)</label>
+      <select id="posPrinterPaperMm" class="pos-input" style="margin-top:6px;">
+        <option value="57">57 mm (ticket estrecho)</option>
+        <option value="80">80 mm (estándar)</option>
+        <option value="112">112 mm (ancho)</option>
+      </select>
+      <button type="button" id="posPrinterWin" class="pos-pay-btn" style="width:100%;margin-top:12px;">Impresora Windows (recomendada)</button>
+      <button type="button" id="posPrinterSerial" class="pos-secondary-btn" style="width:100%;margin-top:8px;">Puerto Serial / COM (Chrome)</button>
+      <button type="button" id="posPrinterUsb" class="pos-secondary-btn" style="width:100%;margin-top:8px;">USB directo (WebUSB)</button>
+      <button type="button" id="posPrinterCancel" class="pos-secondary-btn" style="width:100%;margin-top:12px;">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Login terminal / licencia (overlay) -->
+  <div id="posTerminalGate" class="pos-gate" style="display:none;">
+    <div class="pos-gate-card">
+      <h2 id="posGateTitle">Abrir terminal de caja</h2>
+      <p id="posGateHint">Ingresa la clave de esta caja (la registró el administrador).</p>
+      <label id="posGateClaveLabel" class="pos-gate-label" for="posClaveCaja">Clave de caja</label>
+      <input id="posClaveCaja" class="pos-input" placeholder="Ej: caja1" autocomplete="off" />
+      <label id="posServerUrlLabel" class="pos-gate-label" for="posServerUrl" style="margin-top:10px;">URL del servidor (solo si esta PC no es el servidor)</label>
+      <input id="posServerUrl" class="pos-input" placeholder="http://192.168.1.124:3000" style="margin-top:4px;" />
+      <p id="posGateServerTip" class="pos-gate-tip">Si ya instalaste con el paquete CAJA (.env), déjalo vacío. No escribas MAX_SERVER_URL= — solo la dirección.</p>
+      <button type="button" id="posOpenTerminal" class="pos-pay-btn" style="width:100%;margin-top:12px;">Abrir caja</button>
+      <p id="posGateMsg" class="pos-gate-msg"></p>
+    </div>
+  </div>
+
+  <script src="cliente.js?v=214"></script>
+  <script src="admin-mobile.js?v=209"></script>
+  <script src="caja-impresora.js?v=222"></script>
+  <script src="devoluciones.js?v=216"></script>
+  <script src="caja-funcionalidades.js?v=228"></script>
+  <div id="promoModal" class="promo-modal" style="display:none;">
+    <div class="promo-modal-content">
+      <button id="promoModalClose" class="btn" style="float:right;">Cerrar</button>
+      <h3 id="promoModalTitle">Detalle de promoción</h3>
+      <div id="promoModalBody"></div>
+    </div>
+  </div>
+</body>
+</html>

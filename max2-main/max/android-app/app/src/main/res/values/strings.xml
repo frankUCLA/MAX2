@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">MAX Móvil</string>
+    <string name="app_title">MAX · Móvil</string>
+    <string name="scan_qr">Vincular QR</string>
+    <string name="scan_hint">Apunta la cámara al QR de MAX</string>
+    <string name="camera_permission">Activa el permiso de cámara para escanear el QR.</string>
+    <string name="camera_error">No se pudo abrir la cámara. Revisa los permisos del teléfono.</string>
+    <string name="qr_read_error">No se pudo leer el QR. Mantén el teléfono quieto e inténtalo otra vez.</string>
+    <string name="qr_https_required">Escanea el QR celular de MAX con dirección HTTPS.</string>
+    <string name="qr_invalid">Ese QR no contiene un enlace válido de MAX.</string>
+    <string name="qr_linked">MAX quedó vinculada. No tendrás que escanear de nuevo.</string>
+    <string name="ssl_error">No se pudo verificar el certificado seguro de MAX.</string>
+    <string name="external_app_missing">No hay una aplicación para abrir este enlace.</string>
+</resources>
