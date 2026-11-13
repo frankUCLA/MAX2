@@ -15,5 +15,6 @@ module.exports = {
   ],
   extraMetadata: {
     version: '1.0.0'
-  }
+  },
+  publish: null
 };
