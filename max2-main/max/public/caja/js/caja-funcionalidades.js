@@ -153,10 +153,9 @@ function computeCartMoneyTotals(items, tasaOverride) {
   });
   const totalUsdNeto = Math.max(0, subtotalUsd - descuentosUsd);
   const ivaCalc = calcConIva(totalUsdNeto);
-  if (!CAJA_MAYOR_MODE && tasa > 0) totalBsLineas = roundBsPos(totalUsdNeto * tasa);
   const baseBs = CAJA_MAYOR_MODE
     ? roundBsPos(totalBsLineas)
-    : (tasa > 0 ? roundBsPos(ivaCalc.neto * tasa) : roundBsPos(totalBsLineas));
+    : roundBsPos(totalBsLineas);
   const ivaBs = CAJA_MAYOR_MODE
     ? roundBsPos(baseBs * (ivaCalc.pct / 100))
     : (tasa > 0 ? roundBsPos(ivaCalc.iva * tasa) : 0);

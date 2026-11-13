@@ -5775,10 +5775,60 @@ app.get('/api/reportes/tipos-pago', requiereRol('administrador'), async (req, re
     );
     const totalUsd = rows.reduce((s, r) => s + Number(r.total_usd || 0), 0);
     const totalBs = rows.reduce((s, r) => s + Number(r.total_bs || 0), 0);
+    let puntosVenta = [];
+    if (await tableExists(pool, 'cajas') && await columnExists(pool, 'ventas', 'id_caja')) {
+      const [cajas] = await pool.query(
+        `SELECT c.id_caja, c.nombre_caja,
+                COALESCE(v.ventas, 0) AS ventas,
+                COALESCE(v.total_usd, 0) AS total_usd,
+                COALESCE(p.total_bs, 0) AS total_bs
+         FROM cajas c
+         LEFT JOIN (
+           SELECT id_caja, COUNT(*) AS ventas, SUM(total_venta) AS total_usd
+           FROM ventas v
+           WHERE ${where}
+           GROUP BY id_caja
+         ) v ON v.id_caja = c.id_caja
+         LEFT JOIN (
+           SELECT v.id_caja, SUM(vp.monto_bs) AS total_bs
+           FROM venta_pagos vp
+           INNER JOIN ventas v ON v.id_venta = vp.id_venta
+           WHERE ${where}
+           GROUP BY v.id_caja
+         ) p ON p.id_caja = c.id_caja
+         ORDER BY c.id_caja`,
+        [...params, ...params]
+      );
+      puntosVenta = cajas;
+
+      const [sinCaja] = await pool.query(
+        `SELECT s.ventas, s.total_usd, COALESCE(p.total_bs, 0) AS total_bs
+         FROM (
+           SELECT COUNT(*) AS ventas, COALESCE(SUM(total_venta), 0) AS total_usd
+           FROM ventas v
+           WHERE v.id_caja IS NULL AND ${where}
+         ) s
+         LEFT JOIN (
+           SELECT COALESCE(SUM(vp.monto_bs), 0) AS total_bs
+           FROM venta_pagos vp
+           INNER JOIN ventas v ON v.id_venta = vp.id_venta
+           WHERE v.id_caja IS NULL AND ${where}
+         ) p ON 1 = 1`,
+        [...params, ...params]
+      );
+      if (Number(sinCaja[0] && sinCaja[0].ventas) > 0) {
+        puntosVenta.push({
+          id_caja: null,
+          nombre_caja: 'Sin punto de venta asignado',
+          ...sinCaja[0]
+        });
+      }
+    }
     res.json({
       ok: true,
       resumen: rows,
       detalle,
+      puntos_venta: puntosVenta,
       totales: { total_usd: totalUsd, total_bs: totalBs }
     });
   } catch (e) {
