@@ -8,7 +8,8 @@ const PENDIENTES_KEY = 'max_pedidos_pendientes';
 // Estado de la tasa del dólar (persiste en sessionStorage = mientras no apaguen/cierren sesión del navegador)
 let tasaState = { date: null, price: null, source: null, offline: false, locked: false, lock: null, bcv_tasa: null };
 let ivaState = { activo: false, porcentaje: 16 };
-const CAJA_MAYOR_MODE = new URLSearchParams(window.location.search).get('modo') === 'mayor';
+const CAJA_MAYOR_MODE = window.maxSetupFeatureEnabled('cajaMayor')
+  && new URLSearchParams(window.location.search).get('modo') === 'mayor';
 let posMayorProduct = null;
 let posMayorSelectedTalla = null;
 
@@ -758,6 +759,10 @@ async function ensureProductoTieneCategoria(prod) {
 }
 
 async function loadPromociones() {
+  if (!window.maxSetupFeatureEnabled('promotions')) {
+    promocionesCache = [];
+    return;
+  }
   try {
     const res = await posFetch('/api/promociones/activas');
     if (!res.ok) {
@@ -986,6 +991,9 @@ async function onAgregarAlCarrito(extra = null) {
 }
 
 function aplicarMejorPromocion(item) {
+  if (!window.maxSetupFeatureEnabled('promotions')) {
+    return { descuento: 0, promo: null, detalle: null };
+  }
   // Si el cajero deshabilitó promociones para este item, retornar sin descuento
   if (CAJA_MAYOR_MODE || item.no_aplicar_promocion) {
     console.log('Promociones deshabilitadas para item:', item);
@@ -1271,7 +1279,9 @@ function renderCart() {
         <option value="">Auto</option>
         ${promoOptions.map(pp => `<option value="${pp.id_promocion}" ${it.force_promotion_id && Number(it.force_promotion_id)===Number(pp.id_promocion)?'selected':''}>Forzar: ${pp.nombre}</option>`).join('')}
       </select>` : '';
-    const promoControls = CAJA_MAYOR_MODE
+    const promoControls = !window.maxSetupFeatureEnabled('promotions')
+      ? ''
+      : CAJA_MAYOR_MODE
       ? '<span style="font-size:0.85em;color:#64748b;">Precio manual de Caja Mayor · promociones desactivadas</span>'
       : `<label style="font-size:0.9em;display:flex;align-items:center;gap:6px;">
           <input type="checkbox" ${it.no_aplicar_promocion? 'checked' : ''} onchange="window._caja.toggleNoPromo(${idx}, this.checked)"> Ignorar promo

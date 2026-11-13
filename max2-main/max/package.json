@@ -9,7 +9,8 @@
     "desktop": "electron .",
     "dev": "node servidor/servidor.js",
     "build:desktop": "electron-builder --win nsis",
-    "build:dir": "electron-builder --win dir"
+    "build:dir": "electron-builder --win dir",
+    "build:setup:1.0.0": "electron-builder --config electron-builder.setup-1.0.0.js --win nsis"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

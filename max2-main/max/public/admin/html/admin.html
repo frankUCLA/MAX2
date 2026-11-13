@@ -11,11 +11,21 @@
     <title>MAX — Administración</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin.css?v=218">
+    <script src="/setup-edition.js"></script>
     <script src="max-theme.js"></script>
     <script src="max-ui-dialogs.js?v=208"></script>
     <script src="max-pwa.js"></script>
     <script>
     function switchTab(tab) {
+        const featureByTab = {
+            promociones: 'promotions',
+            contabilidad: 'accounting',
+            cuentas_pagar: 'accounting',
+            caja: 'accounting'
+        };
+        const requiredFeature = featureByTab[tab];
+        if (requiredFeature && !window.maxSetupFeatureEnabled(requiredFeature)) return;
+
         // Ocultar todos los paneles
         const panels = ['dashboardPanel', 'inventarioPanel', 'comprasPanel', 'ventasPanel', 'clientesPanel', 
                        'catalogoPanel', 'promocionesPanel', 'contabilidadPanel', 'cuentas_pagarPanel', 
@@ -48,7 +58,6 @@
             'impuestos': ['impuestosPanel', 'impuestos'],
             'licencias': ['licenciasPanel', 'licencias']
         };
-        
         if (panelMap[tab]) {
             const [panelId, linkTab] = panelMap[tab];
             const panelEl = document.getElementById(panelId);
@@ -707,7 +716,7 @@
                                 <span>Clientes</span>
                             </a>
                         </li>
-                        <li class="sidebar-menu-item">
+                        <li class="sidebar-menu-item" data-setup-feature="promotions">
                             <a href="#" class="sidebar-menu-link" onclick="switchTab('promociones'); return false;">
                                 <span class="sidebar-menu-icon">🎁</span>
                                 <span>Promociones</span>
@@ -715,7 +724,7 @@
                         </li>
                     </ul>
                 </div>
-                <div class="sidebar-section">
+                <div class="sidebar-section" data-setup-feature="accounting">
                     <div class="sidebar-section-title">Contabilidad</div>
                     <ul class="sidebar-menu">
                         <li class="sidebar-menu-item">
@@ -1258,7 +1267,7 @@
                     </form>
                     <p class="lic-register-foot">En cada terminal abre <code>caja.html</code> e inicia con la clave de esa caja.</p>
                 </div>
-                <div id="cajaMayorRegistroBox" class="lic-register admin-card" style="margin-top:16px;">
+                <div id="cajaMayorRegistroBox" class="lic-register admin-card" data-setup-feature="cajaMayor" style="margin-top:16px;">
                     <h4 class="admin-card-title">Registrar Caja Mayor</h4>
                     <p class="lic-register-hint">Esta terminal usa un puerto separado, comparte inventario y no consume un cupo POS del plan. Puede registrarse aunque los cupos estén llenos. El nombre queda fijado como <strong>Caja Mayor</strong>.</p>
                     <form id="formCajaMayor" class="admin-form-grid">
@@ -1696,7 +1705,7 @@
             </div>
 
             <!-- PANEL DE PROMOCIONES -->
-            <div id="promocionesPanel" class="panel tabContent" style="display:none;">
+            <div id="promocionesPanel" class="panel tabContent" data-setup-feature="promotions" style="display:none;">
                 <div class="admin-page-head">
                     <div>
                         <h3>Gestión de promociones</h3>
@@ -1780,7 +1789,7 @@
             </div>
 
             <!-- PANEL DE CONTABILIDAD -->
-            <div id="contabilidadPanel" class="panel tabContent" style="display:none;">
+            <div id="contabilidadPanel" class="panel tabContent" data-setup-feature="accounting" style="display:none;">
                 <div class="admin-page-head">
                     <div>
                         <h3>Contabilidad</h3>
@@ -1859,7 +1868,7 @@
             </div>
 
             <!-- PANEL LIBRO DE PROVEEDORES (cuenta corriente) -->
-            <div id="cuentas_pagarPanel" class="panel tabContent" style="display:none;">
+            <div id="cuentas_pagarPanel" class="panel tabContent" data-setup-feature="accounting" style="display:none;">
                 <div class="admin-page-head libro-prov-head">
                     <div>
                         <h3>Libro de proveedores</h3>
@@ -1962,7 +1971,7 @@
             </div>
 
             <!-- PANEL DE CONTROL DE CAJA -->
-            <div id="cajaPanel" class="panel tabContent" style="display:none;">
+            <div id="cajaPanel" class="panel tabContent" data-setup-feature="accounting" style="display:none;">
                 <div class="admin-page-head">
                     <div>
                         <h3>Control de caja</h3>

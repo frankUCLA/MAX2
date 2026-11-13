@@ -37,6 +37,17 @@
     asistente: 'Asistente'
   };
 
+  function isFeatureTabEnabled(tab) {
+    const featureByTab = {
+      contabilidad: 'accounting',
+      cuentas_pagar: 'accounting',
+      caja: 'accounting',
+      promociones: 'promotions'
+    };
+    const feature = featureByTab[tab];
+    return !feature || window.maxSetupFeatureEnabled(feature);
+  }
+
   function isAllowedControl(btn) {
     if (!btn) return false;
     const id = btn.id || '';
@@ -184,7 +195,7 @@
     bottom.id = 'maxAppBottomNav';
     bottom.className = 'max-app-bottom-nav';
     bottom.setAttribute('aria-label', 'Navegación');
-    bottom.innerHTML = NAV.map((n) => `
+    bottom.innerHTML = NAV.filter((n) => isFeatureTabEnabled(n.tab)).map((n) => `
       <button type="button" class="max-app-nav-btn" data-tab="${n.tab}" ${n.special ? 'data-special="1"' : ''}>
         <span class="max-app-nav-icon" aria-hidden="true">${n.icon}</span>
         <span class="max-app-nav-label">${n.label}</span>
@@ -224,7 +235,7 @@
       const onclick = a.getAttribute('onclick') || '';
       const m = onclick.match(/switchTab\('([^']+)'\)/);
       const tab = m ? m[1] : '';
-      if (tab && !ALLOWED.has(tab)) {
+      if (tab && (!ALLOWED.has(tab) || !isFeatureTabEnabled(tab))) {
         const li = a.closest('.sidebar-menu-item') || a;
         li.style.display = 'none';
       }
@@ -266,7 +277,7 @@
     if (typeof window.switchTab === 'function') {
       const orig = window.switchTab;
       window.switchTab = function (tab) {
-        if (!ALLOWED.has(tab)) {
+        if (!ALLOWED.has(tab) || !isFeatureTabEnabled(tab)) {
           if (typeof maxToast === 'function') maxToast('Esa sección es solo en PC', 'warn');
           setActiveNav('dashboard');
           return orig.call(this, 'dashboard');

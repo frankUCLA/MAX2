@@ -11,6 +11,7 @@
   <title>MAX POS — Caja</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="caja.css?v=211">
+  <script src="/setup-edition.js"></script>
   <script src="max-theme.js"></script>
   <script src="max-ui-dialogs.js?v=209"></script>
   <script src="max-pwa.js"></script>
@@ -30,7 +31,7 @@
       <div class="pos-meta">
         <span id="posEmpresa">COMERCIALIZADORA LIVIA DUN</span>
         <span id="userName" class="pos-seller">—</span>
-        <span id="posCajaModeBadge" class="pos-seller" style="display:none;font-weight:700;">CAJA MAYOR</span>
+        <span id="posCajaModeBadge" class="pos-seller" data-setup-feature="cajaMayor" style="display:none;font-weight:700;">CAJA MAYOR</span>
         <span id="posClock">—</span>
         <span id="posPrinterStatus" class="pos-printer-chip off" title="Estado de impresora">Sin impresora</span>
         <button type="button" id="posConnectPrinter" class="pos-secondary-btn pos-printer-btn" title="Autorizar impresora USB/serial">
@@ -241,7 +242,7 @@
   </div>
 
   <!-- Venta con precio manual de Caja Mayor -->
-  <div id="posMayorModal" class="pos-modal" style="display:none;">
+  <div id="posMayorModal" class="pos-modal" data-setup-feature="cajaMayor" style="display:none;">
     <div class="pos-modal-card">
       <button type="button" class="pos-modal-close" id="posMayorClose">&times;</button>
       <div class="pos-modal-prod">
@@ -453,7 +454,7 @@
   <script src="caja-impresora.js?v=222"></script>
   <script src="devoluciones.js?v=216"></script>
   <script src="caja-funcionalidades.js?v=228"></script>
-  <div id="promoModal" class="promo-modal" style="display:none;">
+  <div id="promoModal" class="promo-modal" data-setup-feature="promotions" style="display:none;">
     <div class="promo-modal-content">
       <button id="promoModalClose" class="btn" style="float:right;">Cerrar</button>
       <h3 id="promoModalTitle">Detalle de promoción</h3>

@@ -1,5 +1,6 @@
 // servidor/servidor.js
 
+const fs = require('fs');
 const path = require('path');
 const { resolveApp, resolveData, ensureDir, isPkg } = require('./paths');
 const serveLegacyPublicFiles = require('./public-files');
@@ -33,6 +34,44 @@ const { startTunelCelular, stopTunelCelular } = require('./tunel-celular');
 const { registerAsistenteRoutes } = require('./asistente-consulta');
 const { ensureLicenseFromEnv } = require('./planes');
 
+const DEFAULT_SETUP_EDITION = {
+  version: null,
+  features: {
+    accounting: true,
+    accountingReports: true,
+    promotions: true,
+    cajaMayor: true
+  }
+};
+
+function loadSetupEdition() {
+  const file = resolveApp('setup-edition.json');
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (error) {
+    if (error.code === 'ENOENT') return DEFAULT_SETUP_EDITION;
+    throw new Error(`No se pudo cargar la configuración de edición (${file}): ${error.message}`);
+  }
+
+  if (!manifest || typeof manifest !== 'object' || !manifest.features || typeof manifest.features !== 'object') {
+    throw new Error(`Configuración de edición inválida en ${file}`);
+  }
+  const features = Object.assign({}, DEFAULT_SETUP_EDITION.features);
+  for (const key of Object.keys(features)) {
+    if (typeof manifest.features[key] !== 'boolean') {
+      throw new Error(`La opción "${key}" debe ser booleana en ${file}`);
+    }
+    features[key] = manifest.features[key];
+  }
+  return {
+    version: typeof manifest.version === 'string' ? manifest.version : null,
+    features
+  };
+}
+
+const setupEdition = loadSetupEdition();
+
 // 1. INICIALIZAR APP DE EXPRESS
 const app = express();
 const SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
@@ -46,6 +85,38 @@ function isCajaMayorRequest(req) {
   return Number(serverPortState.cajaMayorPort) > 0
     && Number(req.socket && req.socket.localPort) === serverPortState.cajaMayorPort;
 }
+
+app.get('/setup-edition.js', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.type('application/javascript').send(
+    `window.MAX_SETUP_EDITION = Object.freeze(${JSON.stringify(setupEdition)});` +
+    'window.maxSetupFeatureEnabled = function (name) {' +
+    'return !window.MAX_SETUP_EDITION || !window.MAX_SETUP_EDITION.features ||' +
+    'window.MAX_SETUP_EDITION.features[name] !== false;' +
+    '};' +
+    'document.addEventListener("DOMContentLoaded", function () {' +
+    'document.querySelectorAll("[data-setup-feature]").forEach(function (element) {' +
+    'if (!window.maxSetupFeatureEnabled(element.dataset.setupFeature)) {' +
+    'element.hidden = true;' +
+    'element.style.setProperty("display", "none", "important");' +
+    '}' +
+    '});' +
+    '});'
+  );
+});
+
+app.use((req, res, next) => {
+  if (!setupEdition.features.promotions && /^\/api\/(?:v1\/)?promociones(?:\/|$)/.test(req.path)) {
+    return res.status(404).json({ ok: false, error: 'Promociones no disponibles en esta edición.' });
+  }
+  if (!setupEdition.features.cajaMayor && (
+    req.path === '/api/licencias/cajas/mayor' ||
+    (req.path.toLowerCase().endsWith('/caja.html') && req.query.modo === 'mayor')
+  )) {
+    return res.status(404).json({ ok: false, error: 'Caja Mayor no está disponible en esta edición.' });
+  }
+  next();
+});
 
 // Detrás de túnel HTTPS (Cloudflare) para cookies / req.secure
 app.set('trust proxy', 1);
@@ -591,13 +662,15 @@ async function procesarVentaEnTransaccion(conn, itemsInput, clienteData, tipo_pa
   
   // Cargar promociones activas (activa=1 y fecha actual entre fecha_inicio y fecha_fin)
   // Usar CURDATE() para asegurar compatibilidad
-  const [promos] = await conn.query(
-    `SELECT * FROM promociones 
-     WHERE activa = 1 
-     AND CURDATE() >= DATE(fecha_inicio) 
-     AND CURDATE() <= DATE(fecha_fin)`, 
-    []
-  );
+  const promos = setupEdition.features.promotions
+    ? (await conn.query(
+      `SELECT * FROM promociones
+       WHERE activa = 1
+       AND CURDATE() >= DATE(fecha_inicio)
+       AND CURDATE() <= DATE(fecha_fin)`,
+      []
+    ))[0]
+    : [];
   
   console.log(`[PROCESAR VENTA] Encontradas ${promos.length} promociones activas para procesar`);
 
@@ -1287,7 +1360,6 @@ app.get('/api/generar-hash/:password', async (req, res) => {
 });
 
 // ---------------- Endpoint para tasa BCV con cache y fallback ----------------
-const fs = require('fs');
 const TASA_FILE = (() => {
   try { ensureDir(resolveData()); } catch (_) {}
   return resolveData('tasa_cache.json');
@@ -4353,16 +4425,18 @@ function startServer(options = {}) {
             console.log('En la misma Wi‑Fi / red, abre desde otro equipo:');
             ips.forEach((ip) => console.log(`  → http://${ip}:${PORT}`));
           }
-          const cajaMayorPort = serverPortState.cajaMayorRequestedPort;
-          if (!Number.isSafeInteger(cajaMayorPort) || cajaMayorPort < 1 || cajaMayorPort > 65535) {
-            console.warn(`[CAJA MAYOR] Puerto inválido: ${cajaMayorPort}`);
-          } else if (cajaMayorPort === PORT) {
-            console.warn('[CAJA MAYOR] El puerto debe ser distinto al puerto principal; Caja Mayor no se inició.');
-          } else {
-            await startCajaMayorServer(cajaMayorPort, HOST);
-            if (serverPortState.cajaMayorPort) {
-              console.log(`Caja Mayor escuchando en http://localhost:${serverPortState.cajaMayorPort}/caja.html?modo=mayor`);
-              ips.forEach((ip) => console.log(`  → http://${ip}:${serverPortState.cajaMayorPort}/caja.html?modo=mayor`));
+          if (setupEdition.features.cajaMayor) {
+            const cajaMayorPort = serverPortState.cajaMayorRequestedPort;
+            if (!Number.isSafeInteger(cajaMayorPort) || cajaMayorPort < 1 || cajaMayorPort > 65535) {
+              console.warn(`[CAJA MAYOR] Puerto inválido: ${cajaMayorPort}`);
+            } else if (cajaMayorPort === PORT) {
+              console.warn('[CAJA MAYOR] El puerto debe ser distinto al puerto principal; Caja Mayor no se inició.');
+            } else {
+              await startCajaMayorServer(cajaMayorPort, HOST);
+              if (serverPortState.cajaMayorPort) {
+                console.log(`Caja Mayor escuchando en http://localhost:${serverPortState.cajaMayorPort}/caja.html?modo=mayor`);
+                ips.forEach((ip) => console.log(`  → http://${ip}:${serverPortState.cajaMayorPort}/caja.html?modo=mayor`));
+              }
             }
           }
           // Túnel celular en segundo plano (no bloquea la ventana)

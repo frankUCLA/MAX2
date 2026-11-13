@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Gestión de promociones
-    if (document.getElementById('form-promocion')) {
+    if (document.getElementById('form-promocion') && window.maxSetupFeatureEnabled('promotions')) {
         document.getElementById('form-promocion').addEventListener('submit', crearPromocion);
         // Cargar opciones (categorías y productos) y luego la lista de promociones
         cargarOpcionesPromocionForm();

@@ -248,6 +248,19 @@
             : celularStatus === 'error'
               ? ('Error: ' + (celularError || 'no disponible'))
               : 'Aún no hay enlace (espera ~10 s tras abrir MAX)';
+      const cajaMayorRedHtml = window.maxSetupFeatureEnabled('cajaMayor') ? `
+          <div class="lic-red-row" style="margin-top:10px;">
+            <div class="lic-red-url">
+              <span class="lic-red-label">Caja Mayor (misma Wi‑Fi)</span>
+              <code id="licCajaMayorUrl">${escapeHtml(cajaMayorUrl || `Puerto ${cajaMayorPuerto} no disponible`)}</code>
+              <small class="lic-qr-help">${cajaMayorUrl
+                ? (cajaMayorRegistrada
+                  ? 'Terminal registrada; comparte este enlace solo con la PC de Caja Mayor.'
+                  : 'Pendiente de registrar la terminal; regístrala en esta sección antes de vender.')
+                : 'MAX no pudo abrir el puerto dedicado. Verifica que esté libre y reinicia el servidor.'}</small>
+            </div>
+            <button type="button" class="btn" data-copy="${escapeHtml(cajaMayorUrl)}" ${cajaMayorUrl ? '' : 'disabled'}>Copiar</button>
+          </div>` : '';
       const redHtml = `
         <section class="lic-red admin-card">
           <h4 class="lic-section-title">Acceso celular</h4>
@@ -273,18 +286,7 @@
             </div>
             <button type="button" class="btn" data-copy="${escapeHtml(cajaUrl)}">Copiar</button>
           </div>
-          <div class="lic-red-row" style="margin-top:10px;">
-            <div class="lic-red-url">
-              <span class="lic-red-label">Caja Mayor (misma Wi‑Fi)</span>
-              <code id="licCajaMayorUrl">${escapeHtml(cajaMayorUrl || `Puerto ${cajaMayorPuerto} no disponible`)}</code>
-              <small class="lic-qr-help">${cajaMayorUrl
-                ? (cajaMayorRegistrada
-                  ? 'Terminal registrada; comparte este enlace solo con la PC de Caja Mayor.'
-                  : 'Pendiente de registrar la terminal; regístrala en esta sección antes de vender.')
-                : 'MAX no pudo abrir el puerto dedicado. Verifica que esté libre y reinicia el servidor.'}</small>
-            </div>
-            <button type="button" class="btn" data-copy="${escapeHtml(cajaMayorUrl)}" ${cajaMayorUrl ? '' : 'disabled'}>Copiar</button>
-          </div>
+          ${cajaMayorRedHtml}
         </section>`;
 
       box.innerHTML = `
@@ -919,7 +921,9 @@
     const form = document.getElementById('formNuevaCaja');
     if (form) form.addEventListener('submit', registrarCajaAdmin);
     const cajaMayorForm = document.getElementById('formCajaMayor');
-    if (cajaMayorForm) cajaMayorForm.addEventListener('submit', registrarCajaMayorAdmin);
+    if (cajaMayorForm && window.maxSetupFeatureEnabled('cajaMayor')) {
+      cajaMayorForm.addEventListener('submit', registrarCajaMayorAdmin);
+    }
     setupNotifBell();
     setupStockAlertModal();
     setTimeout(enriquecerDashboardComercial, 600);

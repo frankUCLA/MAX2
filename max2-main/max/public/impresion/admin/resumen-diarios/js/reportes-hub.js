@@ -3,19 +3,19 @@
  */
 (function () {
   const REPORTS = [
-    { id: 'ventas-mes', title: 'Ventas del mes', desc: 'Totales mensuales de ventas', icon: '💰', color: '#2563eb' },
-    { id: 'compras', title: 'Compras a proveedores', desc: 'Historial y estados de pago', icon: '🛒', color: '#dc2626' },
-    { id: 'compras-mes', title: 'Compras mensuales', desc: 'Totales de compras por mes', icon: '🧾', color: '#ea580c' },
-    { id: 'utilidad', title: 'Utilidad por producto', desc: 'Margen y utilidad unitaria', icon: '💵', color: '#7c3aed' },
-    { id: 'ganancias', title: 'Ganancias', desc: 'Ingresos, costos y utilidad neta', icon: '📈', color: '#d97706' },
+    { id: 'ventas-mes', title: 'Ventas del mes', desc: 'Totales mensuales de ventas', icon: '💰', color: '#2563eb', accounting: true },
+    { id: 'compras', title: 'Compras a proveedores', desc: 'Historial y estados de pago', icon: '🛒', color: '#dc2626', accounting: true },
+    { id: 'compras-mes', title: 'Compras mensuales', desc: 'Totales de compras por mes', icon: '🧾', color: '#ea580c', accounting: true },
+    { id: 'utilidad', title: 'Utilidad por producto', desc: 'Margen y utilidad unitaria', icon: '💵', color: '#7c3aed', accounting: true },
+    { id: 'ganancias', title: 'Ganancias', desc: 'Ingresos, costos y utilidad neta', icon: '📈', color: '#d97706', accounting: true },
     { id: 'inventario', title: 'Inventario actual', desc: 'Stock disponible por producto', icon: '📦', color: '#2563eb' },
     { id: 'rotacion', title: 'Rotación de inventario', desc: 'Qué se mueve y qué no', icon: '🔄', color: '#0891b2' },
     { id: 'lento', title: 'Inventario lento', desc: 'Sin venta en 90 días o más', icon: '🐢', color: '#64748b' },
     { id: 'clientes', title: 'Top clientes', desc: 'Clientes que más compran', icon: '👥', color: '#db2777' },
-    { id: 'categorias', title: 'Margen por categoría', desc: 'Rentabilidad por rubro', icon: '🏷️', color: '#059669' },
-    { id: 'tendencias', title: 'Tendencias por categoría', desc: 'Ventas por categoría (12 meses)', icon: '📊', color: '#4f46e5' },
-    { id: 'tipos-pago', title: 'Tipos de pago', desc: 'Desglose mensual por forma de cobro', icon: '💳', color: '#1d4ed8' },
-    { id: 'tipos-pago-dia', title: 'Resumen diario por forma de pago', desc: 'Cobros de hoy por forma de pago', icon: '🧾', color: '#0f766e' }
+    { id: 'categorias', title: 'Margen por categoría', desc: 'Rentabilidad por rubro', icon: '🏷️', color: '#059669', accounting: true },
+    { id: 'tendencias', title: 'Tendencias por categoría', desc: 'Ventas por categoría (12 meses)', icon: '📊', color: '#4f46e5', accounting: true },
+    { id: 'tipos-pago', title: 'Tipos de pago', desc: 'Desglose mensual por forma de cobro', icon: '💳', color: '#1d4ed8', accounting: true },
+    { id: 'tipos-pago-dia', title: 'Resumen diario por forma de pago', desc: 'Cobros de hoy por forma de pago', icon: '🧾', color: '#0f766e', accounting: true }
   ];
   let dailyPaymentReport = null;
 
@@ -285,8 +285,13 @@
   async function loadReport(id) {
     const body = document.getElementById('reporteHubBody');
     const title = document.getElementById('reporteHubTitle');
-    const meta = REPORTS.find(r => r.id === id);
     if (!body) return;
+    const meta = REPORTS.find(r => r.id === id);
+    if (meta && meta.accounting && !window.maxSetupFeatureEnabled('accountingReports')) {
+      body.innerHTML = '<div class="rpt-empty">Este reporte no está disponible en esta edición.</div>';
+      setReportActions(false);
+      return;
+    }
     bindHeaderActionsOnce();
     if (title) title.textContent = meta ? meta.title : 'Reporte';
     setReportActions(false);
@@ -594,7 +599,8 @@
     if (!grid) return;
     setupFlyoutOnce();
     bindHeaderActionsOnce();
-    grid.innerHTML = REPORTS.map(r => `
+    const reports = REPORTS.filter(r => !r.accounting || window.maxSetupFeatureEnabled('accountingReports'));
+    grid.innerHTML = reports.map(r => `
       <button type="button" class="rpt-menu-item" data-report="${r.id}" style="--rpt:${r.color}">
         <span class="rpt-menu-icon">${r.icon}</span>
         <span class="rpt-menu-copy">
