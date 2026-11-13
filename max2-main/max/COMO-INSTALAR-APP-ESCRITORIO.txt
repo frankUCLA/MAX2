@@ -1,0 +1,98 @@
+================================================================================
+  MAX — APLICACION DE ESCRITORIO (guia simple)
+================================================================================
+
+Esto YA NO se usa abriendo Chrome a mano.
+Se abre como programa:  MAX.exe  (ventana propia).
+
+
+--------------------------------------------------------------------------------
+EN EL PC SERVIDOR (el principal del local)
+--------------------------------------------------------------------------------
+
+1) Instala XAMPP y deja MySQL en verde (como siempre).
+
+2) Si es la primera vez, crea la base MAX e importa los SQL
+   de la carpeta db\ (igual que antes).
+
+3) Copia la carpeta MAX-Desktop (o el portable) al PC.
+   Edita el archivo .env:
+      DB_USER / DB_PASSWORD / DB_NAME
+      LICENCIA_MASTER_KEY=tu-clave-secreta  (NO se la digas al cliente)
+
+4) Doble clic en MAX.exe
+   - Arranca solo
+   - Sale la ventana de login
+   - No abras el navegador
+
+5) Firewall Windows: permitir puerto TCP 3000 (si hay otras cajas).
+
+6) Para instalar MAX en Android y vincular el celular al servidor una sola vez,
+   consulta android-app\README.txt. Para configurar una direccion estable sin
+   dominio propio, ejecuta Configurar-MAX-Movil.bat y sigue las instrucciones.
+
+
+--------------------------------------------------------------------------------
+EN OTRA PC DE CAJA
+--------------------------------------------------------------------------------
+
+1) Copia la misma carpeta MAX-Desktop.
+
+2) En el .env de ESA PC agrega (con la IP real del servidor):
+      MAX_SERVER_URL=http://192.168.1.100:3000
+
+   (Esa PC no necesita MySQL si el servidor ya esta corriendo.)
+
+3) Doble clic en MAX.exe → entra al sistema por la red, en ventana de app.
+
+
+--------------------------------------------------------------------------------
+DIA A DIA
+--------------------------------------------------------------------------------
+
+Servidor:
+  MySQL ON (si no quedo activo) → abrir MAX.exe
+
+Caja remota:
+  Solo abrir MAX.exe (con MAX_SERVER_URL configurado)
+
+
+--------------------------------------------------------------------------------
+ACTUALIZACIONES (otras PCs)
+--------------------------------------------------------------------------------
+
+Usa el instalador MAX-Setup-x.y.z.exe (no solo el portable).
+
+Cuando publiques mejoras:
+  Publicar-actualizacion.bat
+  → deja archivos en updates\
+  → las PCs con red al servidor se actualizan solas al abrir MAX
+
+Guia completa: COMO-ACTUALIZAR-APP.txt
+
+
+--------------------------------------------------------------------------------
+GENERAR LA APP (tu, el desarrollador)
+--------------------------------------------------------------------------------
+
+En tu PC de desarrollo, en la carpeta del proyecto:
+
+  Generar-app-escritorio.bat
+
+O:
+
+  npm install
+  npm run build:desktop
+  node scripts/copiar-desktop-escritorio.js
+
+Queda en el Escritorio: MAX-Desktop
+
+
+--------------------------------------------------------------------------------
+NOTA
+--------------------------------------------------------------------------------
+
+Sigue haciendo falta MySQL en el PC servidor.
+La app de escritorio es la interfaz + motor; los datos viven en MySQL.
+
+================================================================================

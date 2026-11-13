@@ -1,0 +1,107 @@
+{
+  "name": "max-erp",
+  "version": "5.0.8",
+  "description": "MAX ERP comercial con POS, inventario y finanzas",
+  "main": "electron/main.js",
+  "author": "MAX",
+  "scripts": {
+    "start": "node servidor/servidor.js",
+    "desktop": "electron .",
+    "dev": "node servidor/servidor.js",
+    "build:desktop": "electron-builder --win nsis",
+    "build:dir": "electron-builder --win dir"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
+    "cookie-session": "^2.0.0",
+    "dotenv": "^16.4.5",
+    "electron-updater": "^6.8.9",
+    "express": "^4.19.2",
+    "multer": "^2.2.0",
+    "mysql2": "^3.9.7",
+    "node-fetch": "^2.7.0",
+    "qrcode": "^1.5.3"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.max.erp",
+    "productName": "MAX",
+    "copyright": "MAX",
+    "directories": {
+      "output": "dist-build"
+    },
+    "files": [
+      "electron/**/*",
+      "servidor/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/bcrypt/**/*"
+    ],
+    "extraFiles": [
+      {
+        "from": "public",
+        "to": "public"
+      },
+      {
+        "from": "db",
+        "to": "db"
+      },
+      {
+        "from": ".env.example",
+        "to": ".env.example"
+      },
+      {
+        "from": "Abrir-MAX-celular.bat",
+        "to": "Abrir-MAX-celular.bat"
+      },
+      {
+        "from": "Configurar-MAX-Movil.bat",
+        "to": "Configurar-MAX-Movil.bat"
+      },
+      {
+        "from": "LEE-ME-CELULAR.txt",
+        "to": "LEE-ME-CELULAR.txt"
+      },
+      {
+        "from": "scripts/max-celular-tunnel.js",
+        "to": "scripts/max-celular-tunnel.js"
+      },
+      {
+        "from": "Limpiar-sesion-MAX.bat",
+        "to": "Limpiar-sesion-MAX.bat"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "MAX-Setup-${version}.${ext}",
+      "executableName": "MAX",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MAX",
+      "deleteAppDataOnUninstall": false
+    }
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "bcrypt@5.1.1": true
+  }
+}

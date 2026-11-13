@@ -1,0 +1,20 @@
+================================================================================
+  MAX — CELULAR (automático al abrir MAX)
+================================================================================
+
+Ya no hace falta Abrir-MAX-celular.bat.
+
+1) Abre MAX.exe (MySQL en verde).
+2) En Admin → Licencias verás el QR para MAX-Móvil.
+3) En Android, abre MAX-Móvil y escanea el QR una sola vez.
+4) Entra con usuario admin (consulta). Luego abre la app desde su icono.
+
+Para conservar el mismo QR al reiniciar MAX, configura Tailscale Funnel o un
+Cloudflare Tunnel con dominio propio en el .env. Tailscale Funnel no requiere
+comprar dominio y permite abrir la app desde internet sin instalar VPN en el
+teléfono. Consulta android-app\README.txt para los pasos y requisitos.
+
+Para desactivar el túnel: en .env pon
+  MAX_TUNEL_CELULAR=0
+
+================================================================================

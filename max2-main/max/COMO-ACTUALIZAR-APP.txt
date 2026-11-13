@@ -1,0 +1,83 @@
+================================================================================
+  MAX — ACTUALIZACIONES CON GITHUB (gratis)
+================================================================================
+
+Idea:
+  - Repo PUBLICO solo para instaladores (ej: max-updates)
+  - NO pongas tu codigo ahi
+  - Cada Release = una version nueva
+  - Los clientes descargan solo el .exe (tu no ves su negocio)
+
+
+--------------------------------------------------------------------------------
+PASO 1 — Crear el repo en GitHub (una vez)
+--------------------------------------------------------------------------------
+
+1) Entra a https://github.com/new
+2) Repository name:  max-updates
+3) Public
+4) Create repository
+5) No hace falta subir codigo (puede quedar vacio)
+
+
+--------------------------------------------------------------------------------
+PASO 2 — Poner tu usuario en MAX
+--------------------------------------------------------------------------------
+
+Abre:
+
+  electron\update-config.js
+
+Cambia:
+
+  GITHUB_OWNER: 'TU_USUARIO_GITHUB'
+  GITHUB_REPO: 'max-updates'
+
+por ejemplo:
+
+  GITHUB_OWNER: 'juanperez'
+  GITHUB_REPO: 'max-updates'
+
+(Guarda el archivo)
+
+
+--------------------------------------------------------------------------------
+PASO 3 — Generar Setup CON esa config
+--------------------------------------------------------------------------------
+
+Ejecuta:
+
+  Publicar-actualizacion.bat
+
+o:
+
+  Generar-app-escritorio.bat
+
+Ese Setup ya queda "apuntando" a tu GitHub.
+
+
+--------------------------------------------------------------------------------
+PASO 4 — Publicar cada mejora
+--------------------------------------------------------------------------------
+
+1) Publicar-actualizacion.bat
+2) Abre la carpeta updates\
+3) Lee SUBIR-A-GITHUB.txt
+4) En GitHub: Releases > Draft a new release
+   - Tag: v2.0.1  (la version que diga el script)
+   - Sube: latest.yml + MAX-Setup-....exe + .blockmap (si hay)
+5) Publish release
+
+Cuando el cliente abra MAX con internet, se actualiza solo.
+
+
+--------------------------------------------------------------------------------
+IMPORTANTE
+--------------------------------------------------------------------------------
+
+- Repo PUBLICO = los .exe se pueden descargar (normal en updates)
+- No subas ahi tu carpeta modasoft3-main / codigo fuente
+- Al cliente dale MAX-Setup (de MAX-Instalar-en-PC), no el codigo
+- Si cambias GITHUB_OWNER, regenera el Setup e instalalo una vez
+
+================================================================================

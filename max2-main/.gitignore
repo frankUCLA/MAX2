@@ -1,0 +1,18 @@
+# Installed dependencies
+**/node_modules/
+**/.env
+**/.env.*
+!**/.env.example
+
+# Desktop and Android build outputs
+**/dist-build/
+**/dist-build-*/
+**/.gradle/
+**/build/
+**/data/
+**/uploads/
+/max/max-celular-url.txt
+*.exe
+*.asar
+*.apk
+*.blockmap
