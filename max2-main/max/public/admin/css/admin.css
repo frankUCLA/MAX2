@@ -3751,6 +3751,8 @@ body.max-mobile-view #reportesPanel .rpt-header-actions {
   font-size: 0.78rem;
   text-align: right;
 }
+.lic-hist-cierre-msg.is-error { color: #b91c1c; }
+.lic-hist-cierre-msg.is-ok { color: #047857; }
 .lic-hist-filters {
   display: flex;
   flex-wrap: wrap;

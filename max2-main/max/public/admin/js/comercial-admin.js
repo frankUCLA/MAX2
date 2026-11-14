@@ -506,7 +506,9 @@
       ? printer.empresaFactura()
       : { nombre: 'MAX', rif: '', direccion: '', telefono: '' };
     const pagos = (Array.isArray(cierre.pagos) ? cierre.pagos : []).map((pago) => `
-      <div class="row"><span>${escapeHtml(pago.tipo_pago || 'Sin forma de pago')}</span><strong>${fmtMoney(pago.monto)}</strong></div>
+      <div class="row"><span>${escapeHtml(pago.tipo_pago || 'Sin forma de pago')}</span></div>
+      <div class="row"><span>USD</span><strong>${fmtMoney(pago.monto_usd)}</strong></div>
+      <div class="row"><span>Bs</span><strong>${Number(pago.monto_bs || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>
       <div class="muted">${Number(pago.ventas || 0)} venta(s)</div>
     `).join('');
     const neto = Number(cierre.monto_ventas || 0) - Number(cierre.monto_devoluciones || 0);
@@ -543,19 +545,27 @@ ${pagos ? `<div class="section"><strong>Ventas por forma de pago</strong>${pagos
     const message = document.getElementById('licHistCierreMsg');
     const printer = window.MaxImpresora;
     if (!printer || typeof printer.imprimirTicketHtml !== 'function') {
-      if (message) message.textContent = 'El módulo de impresión no está disponible. Recarga la página e inténtalo de nuevo.';
+      if (message) {
+        message.textContent = 'El módulo de impresión no está disponible. Recarga la página e inténtalo de nuevo.';
+        message.classList.add('is-error');
+      }
       return;
     }
     const idCaja = Number(modal && modal.getAttribute('data-caja-id'));
     if (!Number.isSafeInteger(idCaja) || idCaja <= 0) {
-      if (message) message.textContent = 'No se pudo identificar la caja.';
+      if (message) {
+        message.textContent = 'No se pudo identificar la caja.';
+        message.classList.add('is-error');
+      }
       return;
     }
     const nombreCaja = modal.getAttribute('data-caja-nombre') || 'Caja';
-    const originalText = button.textContent;
     button.disabled = true;
     button.textContent = 'Preparando cierre…';
-    if (message) message.textContent = '';
+    if (message) {
+      message.textContent = '';
+      message.classList.remove('is-error', 'is-ok');
+    }
     try {
       const fecha = fechaLocalISO();
       const params = new URLSearchParams({ desde: fecha, hasta: fecha, cierre: '1', limit: '1' });
@@ -571,9 +581,15 @@ ${pagos ? `<div class="section"><strong>Ventas por forma de pago</strong>${pagos
         buildCierreCajaHtml(nombreCaja, data.cierre, getCierrePaperLayout())
       );
       if (!result || !result.ok) throw new Error(result && result.error || 'No se pudo imprimir el cierre de caja.');
-      if (message) message.textContent = `Cierre del ${fecha} impreso correctamente.`;
+      if (message) {
+        message.textContent = `Cierre del ${fecha} impreso correctamente.`;
+        message.classList.add('is-ok');
+      }
     } catch (error) {
-      if (message) message.textContent = error.message || 'No se pudo imprimir el cierre de caja.';
+      if (message) {
+        message.textContent = error.message || 'No se pudo imprimir el cierre de caja.';
+        message.classList.add('is-error');
+      }
     } finally {
       button.disabled = false;
       actualizarBotonCierreCaja();
