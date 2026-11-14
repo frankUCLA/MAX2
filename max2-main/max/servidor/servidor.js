@@ -580,11 +580,7 @@ async function decrementSaleStock(conn, stock) {
 // Helper: procesar venta (reusable por /api/ventas y /api/caja/venta)
 async function procesarVenta(itemsInput, clienteData, tipo_pago, userId, options = {}) {
   await ensureIvaSchema(pool);
-  try {
-    await ensureVentaPagosTable(pool);
-  } catch (e) {
-    console.warn('No se pudo preparar el desglose de pagos:', e.message || e);
-  }
+  await ensureVentaPagosTable(pool);
 
   const conn = await pool.getConnection();
   let result;
@@ -842,6 +838,9 @@ async function procesarVentaEnTransaccion(conn, itemsInput, clienteData, tipo_pa
     );
   }
   const id_venta = ventaRes.insertId;
+  if (await columnExists(conn, 'ventas', 'tasa_dolar') && Number(options.tasa) > 0) {
+    await conn.query('UPDATE ventas SET tasa_dolar = ? WHERE id_venta = ?', [Number(options.tasa), id_venta]);
+  }
 
   // Insert detalle
   const [colsDetalle] = await conn.query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'detalleventa'");
@@ -879,32 +878,30 @@ async function procesarVentaEnTransaccion(conn, itemsInput, clienteData, tipo_pa
   // Desglose de formas de pago
   const pagos = Array.isArray(options.pagos) ? options.pagos : [];
   const tasaPago = Number(options.tasa || 0);
-  try {
-    if (!(await tableExists(conn, 'venta_pagos'))) {
-      console.warn('No se guardó el desglose de pagos porque falta la tabla venta_pagos.');
-    } else if (pagos.length) {
-      for (const p of pagos) {
-        const forma = String(p.forma_pago || p.forma || '').trim();
-        if (!forma) continue;
-        let montoUsd = Number(p.monto_usd);
-        let montoBs = Number(p.monto_bs);
-        if (!(montoUsd > 0) && montoBs > 0 && tasaPago > 0) montoUsd = montoBs / tasaPago;
-        if (!(montoBs > 0) && montoUsd > 0 && tasaPago > 0) montoBs = montoUsd * tasaPago;
-        if (!(montoUsd > 0) && !(montoBs > 0)) continue;
-        await conn.query(
-          `INSERT INTO venta_pagos (id_venta, forma_pago, monto_usd, monto_bs, tasa) VALUES (?, ?, ?, ?, ?)`,
-          [id_venta, forma, montoUsd || 0, montoBs || 0, tasaPago || null]
-        );
+  if (!(await tableExists(conn, 'venta_pagos'))) {
+    throw new Error('No se pudo guardar la forma de pago: falta la tabla venta_pagos.');
+  }
+  if (pagos.length) {
+    for (const p of pagos) {
+      const forma = String(p.forma_pago || p.forma || '').trim();
+      let montoUsd = Number(p.monto_usd);
+      let montoBs = Number(p.monto_bs);
+      if (!(montoUsd > 0) && montoBs > 0 && tasaPago > 0) montoUsd = montoBs / tasaPago;
+      if (!(montoBs > 0) && montoUsd > 0 && tasaPago > 0) montoBs = montoUsd * tasaPago;
+      if (!forma || (!(montoUsd > 0) && !(montoBs > 0))) {
+        throw new Error('No se pudo guardar el desglose: falta la forma de pago o el monto.');
       }
-    } else {
-      // Compat: una sola forma desde tipo_pago
       await conn.query(
-        `INSERT INTO venta_pagos (id_venta, forma_pago, monto_usd, monto_bs, tasa) VALUES (?, ?, ?, ?, ?)`,
-        [id_venta, tipo_pago || 'Efectivo', totalFinal, tasaPago > 0 ? totalFinal * tasaPago : 0, tasaPago || null]
+        'INSERT INTO venta_pagos (id_venta, forma_pago, monto_usd, monto_bs, tasa) VALUES (?, ?, ?, ?, ?)',
+        [id_venta, forma, montoUsd || 0, montoBs || 0, tasaPago || null]
       );
     }
-  } catch (e) {
-    console.warn('No se pudo guardar desglose de pagos:', e.message || e);
+  } else {
+    // Compat: una sola forma desde tipo_pago
+    await conn.query(
+      'INSERT INTO venta_pagos (id_venta, forma_pago, monto_usd, monto_bs, tasa) VALUES (?, ?, ?, ?, ?)',
+      [id_venta, tipo_pago || 'Efectivo', totalFinal, tasaPago > 0 ? totalFinal * tasaPago : 0, tasaPago || null]
+    );
   }
 
   return {
@@ -5749,86 +5746,53 @@ app.get('/api/reportes/tipos-pago', requiereRol('administrador'), async (req, re
       // Mes actual por defecto
       where = 'v.fecha_hora >= DATE_FORMAT(CURDATE(), \'%Y-%m-01\')';
     }
+    const tasaGuardada = await columnExists(pool, 'ventas', 'tasa_dolar');
+    const montoBsFallback = tasaGuardada
+      ? 'v.total_venta * COALESCE(v.tasa_dolar, 0)'
+      : '0';
+    const tasaFallback = tasaGuardada ? 'v.tasa_dolar' : 'NULL';
+    const pagosReporte = `(
+      SELECT vp.id_pago, vp.id_venta, vp.forma_pago, vp.monto_usd, vp.monto_bs,
+             vp.tasa, v.fecha_hora, v.total_venta
+      FROM venta_pagos vp
+      INNER JOIN ventas v ON v.id_venta = vp.id_venta
+      WHERE ${where}
+      UNION ALL
+      SELECT NULL AS id_pago, v.id_venta,
+             COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'Efectivo') AS forma_pago,
+             v.total_venta AS monto_usd, ${montoBsFallback} AS monto_bs,
+             ${tasaFallback} AS tasa, v.fecha_hora, v.total_venta
+      FROM ventas v
+      WHERE ${where}
+        AND NOT EXISTS (
+          SELECT 1 FROM venta_pagos vp WHERE vp.id_venta = v.id_venta
+        )
+    )`;
     const [rows] = await pool.query(
       `SELECT
-         vp.forma_pago,
+         pagos.forma_pago,
          COUNT(*) AS operaciones,
-         COUNT(DISTINCT vp.id_venta) AS ventas,
-         COALESCE(SUM(vp.monto_usd), 0) AS total_usd,
-         COALESCE(SUM(vp.monto_bs), 0) AS total_bs
-       FROM venta_pagos vp
-       INNER JOIN ventas v ON v.id_venta = vp.id_venta
-       WHERE ${where}
-       GROUP BY vp.forma_pago
+         COUNT(DISTINCT pagos.id_venta) AS ventas,
+         COALESCE(SUM(pagos.monto_usd), 0) AS total_usd,
+         COALESCE(SUM(pagos.monto_bs), 0) AS total_bs
+       FROM ${pagosReporte} pagos
+       GROUP BY pagos.forma_pago
        ORDER BY total_usd DESC`,
-      params
+      [...params, ...params]
     );
     const [detalle] = await pool.query(
-      `SELECT vp.id_pago, vp.id_venta, vp.forma_pago, vp.monto_usd, vp.monto_bs, vp.tasa,
-              v.fecha_hora, v.total_venta
-       FROM venta_pagos vp
-       INNER JOIN ventas v ON v.id_venta = vp.id_venta
-       WHERE ${where}
-       ORDER BY v.fecha_hora DESC
+      `SELECT id_pago, id_venta, forma_pago, monto_usd, monto_bs, tasa, fecha_hora, total_venta
+       FROM ${pagosReporte}
+       ORDER BY fecha_hora DESC
        LIMIT 200`,
-      params
+      [...params, ...params]
     );
     const totalUsd = rows.reduce((s, r) => s + Number(r.total_usd || 0), 0);
     const totalBs = rows.reduce((s, r) => s + Number(r.total_bs || 0), 0);
-    let puntosVenta = [];
-    if (await tableExists(pool, 'cajas') && await columnExists(pool, 'ventas', 'id_caja')) {
-      const [cajas] = await pool.query(
-        `SELECT c.id_caja, c.nombre_caja,
-                COALESCE(v.ventas, 0) AS ventas,
-                COALESCE(v.total_usd, 0) AS total_usd,
-                COALESCE(p.total_bs, 0) AS total_bs
-         FROM cajas c
-         LEFT JOIN (
-           SELECT id_caja, COUNT(*) AS ventas, SUM(total_venta) AS total_usd
-           FROM ventas v
-           WHERE ${where}
-           GROUP BY id_caja
-         ) v ON v.id_caja = c.id_caja
-         LEFT JOIN (
-           SELECT v.id_caja, SUM(vp.monto_bs) AS total_bs
-           FROM venta_pagos vp
-           INNER JOIN ventas v ON v.id_venta = vp.id_venta
-           WHERE ${where}
-           GROUP BY v.id_caja
-         ) p ON p.id_caja = c.id_caja
-         ORDER BY c.id_caja`,
-        [...params, ...params]
-      );
-      puntosVenta = cajas;
-
-      const [sinCaja] = await pool.query(
-        `SELECT s.ventas, s.total_usd, COALESCE(p.total_bs, 0) AS total_bs
-         FROM (
-           SELECT COUNT(*) AS ventas, COALESCE(SUM(total_venta), 0) AS total_usd
-           FROM ventas v
-           WHERE v.id_caja IS NULL AND ${where}
-         ) s
-         LEFT JOIN (
-           SELECT COALESCE(SUM(vp.monto_bs), 0) AS total_bs
-           FROM venta_pagos vp
-           INNER JOIN ventas v ON v.id_venta = vp.id_venta
-           WHERE v.id_caja IS NULL AND ${where}
-         ) p ON 1 = 1`,
-        [...params, ...params]
-      );
-      if (Number(sinCaja[0] && sinCaja[0].ventas) > 0) {
-        puntosVenta.push({
-          id_caja: null,
-          nombre_caja: 'Sin punto de venta asignado',
-          ...sinCaja[0]
-        });
-      }
-    }
     res.json({
       ok: true,
       resumen: rows,
       detalle,
-      puntos_venta: puntosVenta,
       totales: { total_usd: totalUsd, total_bs: totalBs }
     });
   } catch (e) {

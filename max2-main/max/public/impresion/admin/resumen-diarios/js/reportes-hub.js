@@ -136,15 +136,8 @@
       alert('Permite ventanas emergentes para imprimir');
       return;
     }
-    const { date, rows, points, totals } = dailyPaymentReport;
-    const pointContent = points.map(point => `
-      <section class="payment">
-        <strong>${escapeHtml(point.nombre_caja || 'Punto de venta')}</strong>
-        <div>${qty(point.ventas)} venta(s)</div>
-        <div>USD $${money(point.total_usd)} · Bs ${money(point.total_bs)}</div>
-      </section>
-    `).join('');
-    const paymentContent = rows.map(row => `
+    const { date, rows, totals } = dailyPaymentReport;
+    const content = rows.map(row => `
       <section class="payment">
         <strong>${escapeHtml(row.forma_pago || 'Sin forma')}</strong>
         <div>${qty(row.operaciones)} operación(es) · ${qty(row.ventas)} venta(s)</div>
@@ -160,7 +153,6 @@
         .date{text-align:center;margin-bottom:8px}
         .payment{padding:5px 0;border-bottom:1px dashed #888;overflow-wrap:anywhere}
         .payment strong{font-size:11px}
-        h2{font-size:12px;margin:9px 0 2px}
         .total{margin-top:8px;padding-top:6px;border-top:1px solid #111;font-weight:bold}
         .total div{display:flex;justify-content:space-between;gap:4px}
         .empty{text-align:center;padding:12px 0}
@@ -168,10 +160,7 @@
       </style></head><body>
         <h1>Resumen por forma de pago</h1>
         <div class="date">${escapeHtml(date)}</div>
-        <h2>Puntos de venta</h2>
-        ${pointContent || '<div class="empty">Sin puntos de venta</div>'}
-        <h2>Formas de pago</h2>
-        ${paymentContent || '<div class="empty">Sin pagos registrados</div>'}
+        ${content || '<div class="empty">Sin pagos registrados</div>'}
         <div class="total">
           <div><span>Total USD</span><span>$${money(totals.total_usd)}</span></div>
           <div><span>Total Bs</span><span>${money(totals.total_bs)}</span></div>
@@ -218,23 +207,18 @@
       alert('No hay reporte para exportar');
       return;
     }
-    const tables = window._rptHubExportName === 'reporte_tipos_pago_dia'
-      ? [...root.querySelectorAll('table')]
-      : [root.querySelector('table')].filter(Boolean);
-    if (!tables.length) {
+    const table = root.querySelector('table');
+    if (!table) {
       alert('Este reporte no tiene tabla descargable en CSV');
       return;
     }
     const lines = [];
-    tables.forEach((table, tableIndex) => {
-      if (tableIndex) lines.push('');
-      table.querySelectorAll('tr').forEach((tr) => {
-        const cells = [...tr.querySelectorAll('th,td')].map((td) => {
-          const t = String(td.textContent || '').trim().replace(/"/g, '""');
-          return `"${t}"`;
-        });
-        if (cells.length) lines.push(cells.join(','));
+    table.querySelectorAll('tr').forEach((tr) => {
+      const cells = [...tr.querySelectorAll('th,td')].map((td) => {
+        const t = String(td.textContent || '').trim().replace(/"/g, '""');
+        return `"${t}"`;
       });
+      if (cells.length) lines.push(cells.join(','));
     });
     if (!lines.length) {
       alert('No hay filas para exportar');
@@ -519,17 +503,8 @@
         const end = toDateParam(dayEnd);
         const data = await getJson(`/api/reportes/tipos-pago?start=${encodeURIComponent(date)}&end=${encodeURIComponent(end)}`);
         const resumen = asList(data, 'resumen');
-        const puntosVenta = asList(data, 'puntos_venta');
         const totales = data.totales || {};
-        dailyPaymentReport = { date, rows: resumen, points: puntosVenta, totals: totales };
-        const pointRows = puntosVenta.map(point => `
-          <tr>
-            <td>${escapeHtml(point.nombre_caja || 'Punto de venta')}</td>
-            <td class="r">${qty(point.ventas || 0)}</td>
-            <td class="r">$${money(point.total_usd)}</td>
-            <td class="r">${money(point.total_bs)}</td>
-          </tr>
-        `);
+        dailyPaymentReport = { date, rows: resumen, totals: totales };
         const rows = resumen.map(row => `
           <tr>
             <td>${escapeHtml(row.forma_pago || '—')}</td>
@@ -546,8 +521,6 @@
             <div class="rpt-kpi"><span>Total Bs</span><strong>${money(totales.total_bs)}</strong></div>
             <div class="rpt-kpi"><span>Formas usadas</span><strong>${qty(resumen.length)}</strong></div>
           </div>
-          <h4 class="rpt-subtitle">Resumen por punto de venta</h4>
-          ${tableHtml(['Punto de venta', 'Ventas', 'Total USD', 'Total Bs'], pointRows)}
           <h4 class="rpt-subtitle">Resumen por forma de pago</h4>
           ${tableHtml(['Forma de pago', 'Ventas', 'Operaciones', 'Total USD', 'Total Bs'], rows)}`);
         return;
