@@ -357,6 +357,12 @@
             <h3 id="licHistTitle">Caja</h3>
           </div>
           <div class="lic-hist-close-actions">
+            <label class="lic-hist-cierre-format">Tipo de cierre
+              <select id="licHistCierreTipo">
+                <option value="detallado">Detallado</option>
+                <option value="total">Total</option>
+              </select>
+            </label>
             <button type="button" class="btn primary" id="licHistCierreBtn">Imprimir cierre 57 mm</button>
             <p id="licHistCierreMsg" class="lic-hist-cierre-msg" aria-live="polite"></p>
           </div>
@@ -510,13 +516,33 @@
     const empresa = printer && typeof printer.empresaFactura === 'function'
       ? printer.empresaFactura()
       : { nombre: 'MAX', rif: '', direccion: '', telefono: '' };
-    const pagos = (Array.isArray(cierre.pagos) ? cierre.pagos : []).map((pago) => `
-      <div class="row"><span>${escapeHtml(pago.tipo_pago || 'Sin forma de pago')}</span></div>
-      <div class="row"><span>USD</span><strong>${fmtMoney(pago.monto_usd)}</strong></div>
-      <div class="row"><span>Bs</span><strong>${Number(pago.monto_bs || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>
-      <div class="muted">${Number(pago.ventas || 0)} venta(s)</div>
-    `).join('');
-    const neto = Number(cierre.monto_ventas || 0) - Number(cierre.monto_devoluciones || 0);
+    const pagos = Array.isArray(cierre.pagos) ? cierre.pagos : [];
+    const pagoEsUsd = (pago) => /\$|\busd\b|d[oó]lar/i.test(String(pago.tipo_pago || ''));
+    const totales = pagos.reduce((acc, pago) => {
+      if (pagoEsUsd(pago)) acc.usd += Number(pago.monto_usd || 0);
+      else acc.bs += Number(pago.monto_bs || 0);
+      return acc;
+    }, { bs: 0, usd: 0 });
+    const formato = document.getElementById('licHistCierreTipo')?.value || 'detallado';
+    const lineasTotales = [
+      totales.bs > 0.001
+        ? `<div class="row"><span>Bolívares</span><strong>Bs ${Number(totales.bs).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>`
+        : '',
+      totales.usd > 0.001
+        ? `<div class="row"><span>Dólares</span><strong>$${Number(totales.usd).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>`
+        : ''
+    ].filter(Boolean).join('');
+    const pagosDetallados = pagos.map((pago) => {
+      const esUsd = pagoEsUsd(pago);
+      const importe = Number(esUsd ? pago.monto_usd : pago.monto_bs) || 0;
+      const monto = importe > 0.001
+        ? esUsd
+          ? `$${importe.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : `Bs ${importe.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : 'Monto no disponible';
+      return `<div class="row"><span>${escapeHtml(pago.tipo_pago || 'Sin forma de pago')}</span><strong>${monto}</strong></div>
+        <div class="muted">${Number(pago.ventas || 0)} venta(s)</div>`;
+    }).join('');
     return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cierre de caja</title>
 <style>
 @page{size:${layout.mm}mm auto;margin:0}
@@ -536,10 +562,8 @@ ${empresa.telefono ? `<div class="center">Tel: ${escapeHtml(empresa.telefono)}</
 <div>Caja: ${escapeHtml(nombreCaja || 'Caja')}</div>
 <div>Fecha: ${escapeHtml(cierre.fecha || fechaLocalISO())}</div>
 <div class="line"></div>
-<div class="section"><div class="row"><span>Ventas (${Number(cierre.ventas || 0)})</span><strong>${fmtMoney(cierre.monto_ventas)}</strong></div></div>
-${pagos ? `<div class="section"><strong>Ventas por forma de pago</strong>${pagos}</div>` : '<div class="section center">Sin ventas registradas</div>'}
-<div class="section"><div class="row"><span>Devoluciones (${Number(cierre.devoluciones || 0)})</span><strong>-${fmtMoney(cierre.monto_devoluciones)}</strong></div></div>
-<div class="row total"><span>NETO DEL DÍA</span><strong>${fmtMoney(neto)}</strong></div>
+<div class="section"><div class="row"><span>Ventas</span><strong>${Number(cierre.ventas || 0)}</strong></div>${lineasTotales || `<div class="row"><span>${Number(cierre.ventas || 0) > 0 ? 'Montos no disponibles' : 'Sin ventas registradas'}</span></div>`}</div>
+${formato === 'detallado' && pagosDetallados ? `<div class="section"><strong>Ventas por forma de pago</strong>${pagosDetallados}</div>` : ''}
 <div class="line"></div><div class="center muted">Resumen de operaciones · ${escapeHtml(new Date().toLocaleString('es-VE'))}</div><br><br>
 </body></html>`;
   }

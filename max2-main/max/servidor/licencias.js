@@ -481,6 +481,27 @@ function registerLicenciasRoutes(app, { pool, requiereRol, isCajaMayorRequest, g
           [idCaja, desde]
         );
         let pagos = [];
+        const tasaLegacy = await columnExists(pool, 'ventas', 'tasa_dolar')
+          ? 'COALESCE(v.tasa_dolar, 0)'
+          : '0';
+        const pagoLegacyUsd = `(LOWER(COALESCE(v.tipo_pago, '')) LIKE '%$%'
+          OR LOWER(COALESCE(v.tipo_pago, '')) LIKE '%usd%'
+          OR LOWER(COALESCE(v.tipo_pago, '')) LIKE '%dolar%'
+          OR LOWER(COALESCE(v.tipo_pago, '')) LIKE '%dólar%')`;
+        const consultarPagosLegacy = async (filtro) => {
+          const [rows] = await pool.query(
+            `SELECT COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'Sin forma de pago') AS tipo_pago,
+                    COUNT(*) AS ventas,
+                    IFNULL(SUM(CASE WHEN ${pagoLegacyUsd} THEN v.total_venta ELSE 0 END), 0) AS monto_usd,
+                    IFNULL(SUM(CASE WHEN ${pagoLegacyUsd} THEN 0 ELSE v.total_venta * ${tasaLegacy} END), 0) AS monto_bs
+             FROM ventas v
+             WHERE v.id_caja = ? AND DATE(v.fecha_hora) = ? ${filtro}
+             GROUP BY COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'Sin forma de pago')
+             ORDER BY tipo_pago`,
+            [idCaja, desde]
+          );
+          return rows || [];
+        };
         if (await tableExists(pool, 'venta_pagos')) {
           const [pagoRows] = await pool.query(
             `SELECT vp.forma_pago AS tipo_pago,
@@ -495,32 +516,11 @@ function registerLicenciasRoutes(app, { pool, requiereRol, isCajaMayorRequest, g
             [idCaja, desde]
           );
           pagos = pagoRows || [];
-          const [pagosLegacy] = await pool.query(
-            `SELECT COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'Sin forma de pago') AS tipo_pago,
-                    COUNT(*) AS ventas,
-                    IFNULL(SUM(v.total_venta), 0) AS monto_usd,
-                    0 AS monto_bs
-             FROM ventas v
-             WHERE v.id_caja = ? AND DATE(v.fecha_hora) = ?
-               AND NOT EXISTS (SELECT 1 FROM venta_pagos vp WHERE vp.id_venta = v.id_venta)
-             GROUP BY COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'Sin forma de pago')
-             ORDER BY tipo_pago`,
-            [idCaja, desde]
-          );
-          pagos = pagos.concat(pagosLegacy || []);
+          pagos = pagos.concat(await consultarPagosLegacy(
+            'AND NOT EXISTS (SELECT 1 FROM venta_pagos vp WHERE vp.id_venta = v.id_venta)'
+          ));
         } else {
-          const [pagoRows] = await pool.query(
-            `SELECT COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'Sin forma de pago') AS tipo_pago,
-                    COUNT(*) AS ventas,
-                    IFNULL(SUM(v.total_venta), 0) AS monto_usd,
-                    0 AS monto_bs
-             FROM ventas v
-             WHERE v.id_caja = ? AND DATE(v.fecha_hora) = ?
-             GROUP BY COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'Sin forma de pago')
-             ORDER BY tipo_pago`,
-            [idCaja, desde]
-          );
-          pagos = pagoRows || [];
+          pagos = await consultarPagosLegacy('');
         }
         let cierreDevoluciones = { devoluciones: 0, monto_devoluciones: 0 };
         if (hasDev) {

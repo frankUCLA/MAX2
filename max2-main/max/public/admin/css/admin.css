@@ -3740,13 +3740,33 @@ body.max-mobile-view #reportesPanel .rpt-header-actions {
 }
 .lic-hist-close-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
   gap: 4px;
+}
+.lic-hist-cierre-format {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: #475569;
+}
+.lic-hist-cierre-format select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: #fff;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #0f172a;
 }
 .lic-hist-cierre-msg {
   margin: 0;
   min-height: 1em;
+  flex-basis: 100%;
   color: #64748b;
   font-size: 0.78rem;
   text-align: right;
@@ -3868,6 +3888,9 @@ body.max-mobile-view #reportesPanel .rpt-header-actions {
   .lic-hist-close-actions {
     width: 100%;
     align-items: stretch;
+  }
+  .lic-hist-cierre-format {
+    justify-content: space-between;
   }
   .lic-hist-cierre-msg {
     text-align: left;
