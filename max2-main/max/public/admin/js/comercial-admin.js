@@ -356,6 +356,10 @@
             <p class="lic-hist-eyebrow">Historial de caja</p>
             <h3 id="licHistTitle">Caja</h3>
           </div>
+          <div class="lic-hist-close-actions">
+            <button type="button" class="btn primary" id="licHistCierreBtn">Imprimir cierre 57 mm</button>
+            <p id="licHistCierreMsg" class="lic-hist-cierre-msg" aria-live="polite"></p>
+          </div>
         </header>
         <div class="lic-hist-filters">
           <label class="lic-hist-field">Desde
@@ -389,6 +393,7 @@
     document.getElementById('cerrarModalHistorialCaja').addEventListener('click', () => {
       modal.style.display = 'none';
     });
+    document.getElementById('licHistCierreBtn').addEventListener('click', imprimirCierreCaja);
 
     const reload = () => {
       const id = Number(modal.getAttribute('data-caja-id'));
@@ -466,8 +471,113 @@
     if (dias && !(desde && desde.value) && !(hasta && hasta.value)) {
       dias.value = '30';
     }
+    actualizarBotonCierreCaja();
     modal.style.display = 'flex';
     cargarHistorialCaja(idCaja, nombre);
+  }
+
+  function getCierrePaperLayout() {
+    const printer = window.MaxImpresora;
+    const layout = printer && typeof printer.paperLayout === 'function'
+      ? printer.paperLayout()
+      : { mm: 57, fontPx: 10, titlePx: 12, totPx: 12 };
+    const mm = Number(layout.mm) <= 57 ? 57 : 80;
+    return {
+      mm,
+      fontPx: mm === 57 ? 10 : 13,
+      titlePx: mm === 57 ? 12 : 16,
+      totPx: mm === 57 ? 12 : 15
+    };
+  }
+
+  function actualizarBotonCierreCaja() {
+    const button = document.getElementById('licHistCierreBtn');
+    if (button) button.textContent = `Imprimir cierre ${getCierrePaperLayout().mm} mm`;
+  }
+
+  function fechaLocalISO() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+
+  function buildCierreCajaHtml(nombreCaja, cierre, layout) {
+    const printer = window.MaxImpresora;
+    const empresa = printer && typeof printer.empresaFactura === 'function'
+      ? printer.empresaFactura()
+      : { nombre: 'MAX', rif: '', direccion: '', telefono: '' };
+    const pagos = (Array.isArray(cierre.pagos) ? cierre.pagos : []).map((pago) => `
+      <div class="row"><span>${escapeHtml(pago.tipo_pago || 'Sin forma de pago')}</span><strong>${fmtMoney(pago.monto)}</strong></div>
+      <div class="muted">${Number(pago.ventas || 0)} venta(s)</div>
+    `).join('');
+    const neto = Number(cierre.monto_ventas || 0) - Number(cierre.monto_devoluciones || 0);
+    return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cierre de caja</title>
+<style>
+@page{size:${layout.mm}mm auto;margin:0}
+*{box-sizing:border-box}
+html,body{width:${layout.mm}mm;max-width:${layout.mm}mm;margin:0;padding:0;color:#000!important;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{padding:2mm 3mm;font:900 ${layout.fontPx}px/1.3 "Courier New",monospace;-webkit-text-stroke:.35px #000;text-rendering:geometricPrecision}
+.center{text-align:center}.title{font-size:${layout.titlePx}px;font-weight:900;-webkit-text-stroke:.45px #000}.line{border-top:1px solid #000;margin:6px 0}
+.row{display:flex;justify-content:space-between;gap:4px;padding-top:4px}.row span{overflow-wrap:anywhere}.total{font-size:${layout.totPx}px;font-weight:900;padding-top:5px}
+.muted{font-size:${Math.max(9, layout.fontPx - 1)}px}.section{padding:4px 0;border-bottom:1px dashed #888}
+</style></head><body>
+<div class="center title">${escapeHtml(empresa.nombre || 'MAX')}</div>
+${empresa.rif ? `<div class="center">${escapeHtml(empresa.rif)}</div>` : ''}
+${empresa.direccion ? `<div class="center">${escapeHtml(empresa.direccion)}</div>` : ''}
+${empresa.telefono ? `<div class="center">Tel: ${escapeHtml(empresa.telefono)}</div>` : ''}
+<div class="center title">CIERRE DE CAJA</div>
+<div class="line"></div>
+<div>Caja: ${escapeHtml(nombreCaja || 'Caja')}</div>
+<div>Fecha: ${escapeHtml(cierre.fecha || fechaLocalISO())}</div>
+<div class="line"></div>
+<div class="section"><div class="row"><span>Ventas (${Number(cierre.ventas || 0)})</span><strong>${fmtMoney(cierre.monto_ventas)}</strong></div></div>
+${pagos ? `<div class="section"><strong>Ventas por forma de pago</strong>${pagos}</div>` : '<div class="section center">Sin ventas registradas</div>'}
+<div class="section"><div class="row"><span>Devoluciones (${Number(cierre.devoluciones || 0)})</span><strong>-${fmtMoney(cierre.monto_devoluciones)}</strong></div></div>
+<div class="row total"><span>NETO DEL DÍA</span><strong>${fmtMoney(neto)}</strong></div>
+<div class="line"></div><div class="center muted">Resumen de operaciones · ${escapeHtml(new Date().toLocaleString('es-VE'))}</div><br><br>
+</body></html>`;
+  }
+
+  async function imprimirCierreCaja(event) {
+    const button = event.currentTarget;
+    const modal = document.getElementById('modalHistorialCaja');
+    const message = document.getElementById('licHistCierreMsg');
+    const printer = window.MaxImpresora;
+    if (!printer || typeof printer.imprimirTicketHtml !== 'function') {
+      if (message) message.textContent = 'El módulo de impresión no está disponible. Recarga la página e inténtalo de nuevo.';
+      return;
+    }
+    const idCaja = Number(modal && modal.getAttribute('data-caja-id'));
+    if (!Number.isSafeInteger(idCaja) || idCaja <= 0) {
+      if (message) message.textContent = 'No se pudo identificar la caja.';
+      return;
+    }
+    const nombreCaja = modal.getAttribute('data-caja-nombre') || 'Caja';
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Preparando cierre…';
+    if (message) message.textContent = '';
+    try {
+      const fecha = fechaLocalISO();
+      const params = new URLSearchParams({ desde: fecha, hasta: fecha, cierre: '1', limit: '1' });
+      const res = await fetch(`/api/licencias/cajas/${encodeURIComponent(idCaja)}/historial?${params}`, {
+        credentials: 'include'
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok || !data.cierre) {
+        throw new Error(data.error || 'No se pudo preparar el cierre de caja.');
+      }
+      button.textContent = 'Imprimiendo…';
+      const result = await printer.imprimirTicketHtml(
+        buildCierreCajaHtml(nombreCaja, data.cierre, getCierrePaperLayout())
+      );
+      if (!result || !result.ok) throw new Error(result && result.error || 'No se pudo imprimir el cierre de caja.');
+      if (message) message.textContent = `Cierre del ${fecha} impreso correctamente.`;
+    } catch (error) {
+      if (message) message.textContent = error.message || 'No se pudo imprimir el cierre de caja.';
+    } finally {
+      button.disabled = false;
+      actualizarBotonCierreCaja();
+    }
   }
 
   function getHistorialQuery() {

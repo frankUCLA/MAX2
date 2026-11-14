@@ -472,6 +472,40 @@ function registerLicenciasRoutes(app, { pool, requiereRol, isCajaMayorRequest, g
       const totalDevs = (devoluciones || []).length;
       const montoDevs = (devoluciones || []).reduce((s, d) => s + Number(d.monto_reembolsado || 0), 0);
       const ventasConDev = (ventas || []).filter((v) => Number(v.devoluciones_count || 0) > 0).length;
+      let cierre = null;
+      if (req.query.cierre === '1' && desde && hasta && desde === hasta) {
+        const [pagos] = await pool.query(
+          `SELECT COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'Sin forma de pago') AS tipo_pago,
+                  COUNT(*) AS ventas,
+                  IFNULL(SUM(v.total_venta), 0) AS monto
+           FROM ventas v
+           WHERE v.id_caja = ? AND DATE(v.fecha_hora) = ?
+           GROUP BY COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'Sin forma de pago')
+           ORDER BY tipo_pago`,
+          [idCaja, desde]
+        );
+        let cierreDevoluciones = { devoluciones: 0, monto_devoluciones: 0 };
+        if (hasDev) {
+          const [devTotals] = await pool.query(
+            `SELECT COUNT(DISTINCT d.id_devolucion) AS devoluciones,
+                    IFNULL(SUM(d.monto_reembolsado), 0) AS monto_devoluciones
+             FROM devoluciones d
+             INNER JOIN detalleventa dv ON dv.id_detalle = d.id_detalle
+             INNER JOIN ventas v ON v.id_venta = dv.id_venta
+             WHERE v.id_caja = ? AND DATE(d.fecha_hora) = ?`,
+            [idCaja, desde]
+          );
+          cierreDevoluciones = devTotals[0] || cierreDevoluciones;
+        }
+        cierre = {
+          fecha: desde,
+          pagos: pagos || [],
+          ventas: (pagos || []).reduce((sum, pago) => sum + Number(pago.ventas || 0), 0),
+          monto_ventas: (pagos || []).reduce((sum, pago) => sum + Number(pago.monto || 0), 0),
+          devoluciones: Number(cierreDevoluciones.devoluciones || 0),
+          monto_devoluciones: Number(cierreDevoluciones.monto_devoluciones || 0)
+        };
+      }
 
       res.json({
         ok: true,
@@ -485,7 +519,8 @@ function registerLicenciasRoutes(app, { pool, requiereRol, isCajaMayorRequest, g
           ventas_con_devolucion: ventasConDev
         },
         ventas: ventas || [],
-        devoluciones
+        devoluciones,
+        ...(cierre ? { cierre } : {})
       });
     } catch (e) {
       console.error('licencias/cajas/historial:', e.message || e);

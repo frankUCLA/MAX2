@@ -55,6 +55,7 @@
     if (id === 'logoutBtn' || txt.includes('cerrar sesión') || txt.includes('salir')) return true;
     if (btn.classList.contains('theme-swatch') || btn.closest('.user-menu')) return true;
     if (id === 'userAvatar') return true;
+    if (id === 'licHistCierreBtn') return true;
     if (id === 'rptHubPdfBtn' || id === 'rptHubCsvBtn' || id === 'rptHubPrintBtn') return true;
     if (id === 'rptFlyoutClose') return true;
     if (btn.classList.contains('rpt-dl-btn') || btn.classList.contains('rpt-menu-item') || btn.classList.contains('rpt-flyout-close')) return true;
