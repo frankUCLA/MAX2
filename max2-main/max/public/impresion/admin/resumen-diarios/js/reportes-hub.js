@@ -126,16 +126,19 @@
     })[char]);
   }
 
-  function printDailyPaymentThermal(widthMm) {
+  async function printDailyPaymentThermal(widthMm) {
     if (!dailyPaymentReport) {
       alert('No hay resumen diario para imprimir');
       return;
     }
-    const w = window.open('', '_blank', 'width=420,height=700');
-    if (!w) {
-      alert('Permite ventanas emergentes para imprimir');
+    const printer = window.MaxImpresora;
+    if (!printer || typeof printer.imprimirTicketHtml !== 'function') {
+      alert('El módulo de impresión no está disponible. Recarga la página e inténtalo de nuevo.');
       return;
     }
+    const paperMm = widthMm === 57 ? 57 : 80;
+    const fontPx = paperMm === 57 ? 10 : 13;
+    const titlePx = paperMm === 57 ? 12 : 16;
     const { date, rows, totals } = dailyPaymentReport;
     const content = rows.map(row => `
       <section class="payment">
@@ -144,15 +147,16 @@
         <div>USD $${money(row.total_usd)} · Bs ${money(row.total_bs)}</div>
       </section>
     `).join('');
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumen diario de pagos</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumen diario de pagos</title>
       <style>
-        @page{size:${widthMm}mm auto;margin:0}
+        @page{size:${paperMm}mm auto;margin:0}
         *{box-sizing:border-box}
-        body{width:${widthMm === 57 ? 52 : 74}mm;margin:0 auto;padding:3mm 1mm;color:#111;font:10px/1.35 Arial,sans-serif}
-        h1{font-size:14px;text-align:center;margin:0 0 3px}
+        html,body{width:${paperMm}mm;max-width:${paperMm}mm;margin:0;padding:0;color:#000!important;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        body{padding:2mm 3mm;font:900 ${fontPx}px/1.3 "Courier New",monospace;-webkit-text-stroke:.35px #000;text-rendering:geometricPrecision}
+        h1{font-size:${titlePx}px;text-align:center;margin:0 0 3px}
         .date{text-align:center;margin-bottom:8px}
         .payment{padding:5px 0;border-bottom:1px dashed #888;overflow-wrap:anywhere}
-        .payment strong{font-size:11px}
+        .payment strong{font-size:${fontPx + 1}px}
         .total{margin-top:8px;padding-top:6px;border-top:1px solid #111;font-weight:bold}
         .total div{display:flex;justify-content:space-between;gap:4px}
         .empty{text-align:center;padding:12px 0}
@@ -166,11 +170,13 @@
           <div><span>Total Bs</span><span>${money(totals.total_bs)}</span></div>
         </div>
         <footer>Generado ${escapeHtml(new Date().toLocaleString('es-VE'))}</footer>
-      </body></html>`);
-    w.document.close();
-    setTimeout(() => {
-      try { w.focus(); w.print(); } catch (_) {}
-    }, 300);
+      </body></html>`;
+    try {
+      const result = await printer.imprimirTicketHtml(html);
+      if (!result || !result.ok) throw new Error(result && result.error || 'No se pudo imprimir el resumen diario.');
+    } catch (error) {
+      alert(error.message || 'No se pudo imprimir el resumen diario.');
+    }
   }
 
   function printHub() {
