@@ -570,14 +570,10 @@
 
   function setFlyoutOpen(open) {
     const fly = document.getElementById('reporteFlyout');
-    const toggle = document.getElementById('rptFlyoutToggle');
     if (!fly) return;
     fly.classList.toggle('is-open', !!open);
-    if (toggle) {
-      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-      const chev = toggle.querySelector('.rpt-flyout-chevron');
-      if (chev) chev.textContent = open ? '‹' : '›';
-    }
+    const menuLink = document.getElementById('sidebarReportesLink');
+    if (menuLink) menuLink.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
   window.setReportesFlyoutOpen = setFlyoutOpen;
 
@@ -585,13 +581,7 @@
     const fly = document.getElementById('reporteFlyout');
     if (!fly || fly.dataset.bound === '1') return;
     fly.dataset.bound = '1';
-    const toggle = document.getElementById('rptFlyoutToggle');
     const closeBtn = document.getElementById('rptFlyoutClose');
-    if (toggle) {
-      toggle.addEventListener('click', () => {
-        setFlyoutOpen(!fly.classList.contains('is-open'));
-      });
-    }
     if (closeBtn) closeBtn.addEventListener('click', () => setFlyoutOpen(false));
   }
 
@@ -613,9 +603,7 @@
       btn.addEventListener('click', () => {
         loadReport(btn.dataset.report);
         grid.querySelectorAll('.rpt-menu-item').forEach(b => b.classList.toggle('active', b === btn));
-        if (window.matchMedia && window.matchMedia('(max-width: 900px)').matches) {
-          setFlyoutOpen(false);
-        }
+        setFlyoutOpen(false);
       });
     });
   }
@@ -625,7 +613,7 @@
     const body = document.getElementById('reporteHubBody');
     if (body && !body.dataset.ready) {
       body.dataset.ready = '1';
-      body.innerHTML = '<div class="rpt-empty">Toca <strong>Elegir reporte</strong> para ver y descargar un análisis</div>';
+      body.innerHTML = '<div class="rpt-empty">Abre <strong>Centro de reportes</strong> para elegir un análisis</div>';
     }
   };
 

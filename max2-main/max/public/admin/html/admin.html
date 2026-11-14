@@ -10,13 +10,14 @@
     <link rel="apple-touch-icon" href="/imagen/images.png"/>
     <title>MAX — Administración</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="admin.css?v=218">
+    <link rel="stylesheet" href="admin.css?v=219">
     <script src="/setup-edition.js"></script>
     <script src="max-theme.js"></script>
     <script src="max-ui-dialogs.js?v=208"></script>
     <script src="max-pwa.js"></script>
     <script>
     function switchTab(tab) {
+        const isReportsTab = ['reportes', 'reporte-compras', 'reporte-utilidad', 'reporte-ganancias'].includes(tab);
         const featureByTab = {
             promociones: 'promotions',
             contabilidad: 'accounting',
@@ -25,6 +26,7 @@
         };
         const requiredFeature = featureByTab[tab];
         if (requiredFeature && !window.maxSetupFeatureEnabled(requiredFeature)) return;
+        if (!isReportsTab && typeof setReportesFlyoutOpen === 'function') setReportesFlyoutOpen(false);
 
         // Ocultar todos los paneles
         const panels = ['dashboardPanel', 'inventarioPanel', 'comprasPanel', 'ventasPanel', 'clientesPanel', 
@@ -140,6 +142,7 @@
             if (tab === 'reportes' || tab === 'reporte-compras' || tab === 'reporte-utilidad' || tab === 'reporte-ganancias') {
                 setTimeout(() => {
                     if (typeof initReportesHub === 'function') initReportesHub();
+                    if (typeof setReportesFlyoutOpen === 'function') setReportesFlyoutOpen(true);
                     const mapOpen = {
                         'reporte-compras': 'compras',
                         'reporte-utilidad': 'utilidad',
@@ -751,9 +754,10 @@
                     <div class="sidebar-section-title">Reportes</div>
                     <ul class="sidebar-menu">
                         <li class="sidebar-menu-item">
-                            <a href="#" class="sidebar-menu-link" onclick="switchTab('reportes'); return false;">
+                            <a href="#" id="sidebarReportesLink" class="sidebar-menu-link" onclick="switchTab('reportes'); return false;" aria-haspopup="true" aria-controls="reporteHubGrid" aria-expanded="false">
                                 <span class="sidebar-menu-icon">📊</span>
                                 <span>Centro de reportes</span>
+                                <span class="sidebar-menu-chevron" aria-hidden="true">⌄</span>
                             </a>
                         </li>
                     </ul>
@@ -2001,11 +2005,6 @@
                 </div>
                 <div class="rpt-hub-workspace">
                     <aside class="rpt-flyout" id="reporteFlyout">
-                        <button type="button" id="rptFlyoutToggle" class="rpt-flyout-toggle" aria-expanded="false" title="Abrir menú de reportes">
-                            <span class="rpt-flyout-toggle-icon">📊</span>
-                            <span class="rpt-flyout-toggle-text">Elegir reporte</span>
-                            <span class="rpt-flyout-chevron" aria-hidden="true">›</span>
-                        </button>
                         <div class="rpt-flyout-panel" id="reporteFlyoutPanel">
                             <div class="rpt-flyout-panel-head">
                                 <span>Menú de reportes</span>
@@ -2027,7 +2026,7 @@
                             </div>
                         </div>
                         <div id="reporteHubBody">
-                            <div class="rpt-empty">Toca <strong>Elegir reporte</strong> para ver y descargar un análisis</div>
+                            <div class="rpt-empty">Abre <strong>Centro de reportes</strong> para elegir un análisis</div>
                         </div>
                     </div>
                 </div>
@@ -2160,7 +2159,7 @@
     <script src="admin-funcionalidades.js?v=214"></script>
     <script src="fugas.js?v=311"></script>
     <script src="reportes.js?v=208"></script>
-    <script src="reportes-hub.js?v=209"></script>
+    <script src="reportes-hub.js?v=210"></script>
     <script src="caja-impresora.js?v=221"></script>
     <script src="comercial-admin.js?v=216"></script>
     <script src="copias.js?v=1"></script>

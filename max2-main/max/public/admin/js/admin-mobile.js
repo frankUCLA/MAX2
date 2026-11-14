@@ -56,8 +56,8 @@
     if (btn.classList.contains('theme-swatch') || btn.closest('.user-menu')) return true;
     if (id === 'userAvatar') return true;
     if (id === 'rptHubPdfBtn' || id === 'rptHubCsvBtn' || id === 'rptHubPrintBtn') return true;
-    if (id === 'rptFlyoutToggle' || id === 'rptFlyoutClose') return true;
-    if (btn.classList.contains('rpt-dl-btn') || btn.classList.contains('rpt-menu-item') || btn.classList.contains('rpt-flyout-toggle') || btn.classList.contains('rpt-flyout-close')) return true;
+    if (id === 'rptFlyoutClose') return true;
+    if (btn.classList.contains('rpt-dl-btn') || btn.classList.contains('rpt-menu-item') || btn.classList.contains('rpt-flyout-close')) return true;
     if (btn.closest('.rpt-header-actions') || btn.closest('.rpt-flyout') || btn.closest('#reporteHubGrid')) return true;
     if (btn.closest('#maxAppBottomNav') || btn.closest('#maxAppTopbar') || btn.closest('#maxAiPanel')) return true;
     if (txt.includes('export') || txt.includes('pdf') || txt.includes('csv') || txt.includes('imprimir') || txt.includes('descargar')) return true;
