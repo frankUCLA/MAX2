@@ -472,6 +472,11 @@
       dias.value = '30';
     }
     actualizarBotonCierreCaja();
+    const cierreMsg = document.getElementById('licHistCierreMsg');
+    if (cierreMsg) {
+      cierreMsg.textContent = '';
+      cierreMsg.classList.remove('is-error', 'is-ok');
+    }
     modal.style.display = 'flex';
     cargarHistorialCaja(idCaja, nombre);
   }
