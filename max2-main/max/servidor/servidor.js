@@ -5750,42 +5750,33 @@ app.get('/api/reportes/tipos-pago', requiereRol('administrador'), async (req, re
     const montoBsFallback = tasaGuardada
       ? 'v.total_venta * COALESCE(v.tasa_dolar, 0)'
       : '0';
-    const tasaFallback = tasaGuardada ? 'v.tasa_dolar' : 'NULL';
-    const pagosReporte = `(
-      SELECT vp.id_pago, vp.id_venta, vp.forma_pago, vp.monto_usd, vp.monto_bs,
-             vp.tasa, v.fecha_hora, v.total_venta
-      FROM venta_pagos vp
-      INNER JOIN ventas v ON v.id_venta = vp.id_venta
-      WHERE ${where}
-      UNION ALL
-      SELECT NULL AS id_pago, v.id_venta,
-             COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'Efectivo') AS forma_pago,
-             v.total_venta AS monto_usd, ${montoBsFallback} AS monto_bs,
-             ${tasaFallback} AS tasa, v.fecha_hora, v.total_venta
-      FROM ventas v
-      WHERE ${where}
-        AND NOT EXISTS (
-          SELECT 1 FROM venta_pagos vp WHERE vp.id_venta = v.id_venta
-        )
-    )`;
     const [rows] = await pool.query(
       `SELECT
-         pagos.forma_pago,
+         COALESCE(vp.forma_pago, COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'Efectivo')) AS forma_pago,
          COUNT(*) AS operaciones,
-         COUNT(DISTINCT pagos.id_venta) AS ventas,
-         COALESCE(SUM(pagos.monto_usd), 0) AS total_usd,
-         COALESCE(SUM(pagos.monto_bs), 0) AS total_bs
-       FROM ${pagosReporte} pagos
-       GROUP BY pagos.forma_pago
+         COUNT(DISTINCT v.id_venta) AS ventas,
+         COALESCE(SUM(COALESCE(vp.monto_usd, v.total_venta)), 0) AS total_usd,
+         COALESCE(SUM(COALESCE(vp.monto_bs, ${montoBsFallback})), 0) AS total_bs
+       FROM ventas v
+       LEFT JOIN venta_pagos vp ON vp.id_venta = v.id_venta
+       WHERE ${where}
+       GROUP BY forma_pago
        ORDER BY total_usd DESC`,
-      [...params, ...params]
+      params
     );
     const [detalle] = await pool.query(
-      `SELECT id_pago, id_venta, forma_pago, monto_usd, monto_bs, tasa, fecha_hora, total_venta
-       FROM ${pagosReporte}
-       ORDER BY fecha_hora DESC
+      `SELECT vp.id_pago, v.id_venta,
+              COALESCE(vp.forma_pago, COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'Efectivo')) AS forma_pago,
+              COALESCE(vp.monto_usd, v.total_venta) AS monto_usd,
+              COALESCE(vp.monto_bs, ${montoBsFallback}) AS monto_bs,
+              COALESCE(vp.tasa, ${tasaGuardada ? 'v.tasa_dolar' : 'NULL'}) AS tasa,
+              v.fecha_hora, v.total_venta
+       FROM ventas v
+       LEFT JOIN venta_pagos vp ON vp.id_venta = v.id_venta
+       WHERE ${where}
+       ORDER BY v.fecha_hora DESC
        LIMIT 200`,
-      [...params, ...params]
+      params
     );
     const totalUsd = rows.reduce((s, r) => s + Number(r.total_usd || 0), 0);
     const totalBs = rows.reduce((s, r) => s + Number(r.total_bs || 0), 0);
