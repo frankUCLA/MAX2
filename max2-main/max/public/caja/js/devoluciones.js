@@ -2,6 +2,8 @@
   devoluciones.js — módulo de devoluciones en caja
 */
 (function () {
+  const CODIGO_BARRAS_DEVOLUCIONES = '879436512';
+
   function devFetch(path, opts) {
     if (typeof posFetch === 'function') return posFetch(path, opts);
     const base = (localStorage.getItem('serverBaseUrl') || '').replace(/\/$/, '');
@@ -42,42 +44,10 @@
   }
 
   function bindUi() {
-    const formAcceso = document.getElementById('form-acceso-devoluciones');
     const panelDevoluciones = document.getElementById('panelDevoluciones');
     const btnBuscarVenta = document.getElementById('btnBuscarVentaDevolucion');
     const inputVenta = document.getElementById('devolucionNumeroVenta');
     const resultados = document.getElementById('ventasClienteDevolucion');
-
-    if (formAcceso && !formAcceso._devBound) {
-      formAcceso._devBound = true;
-      formAcceso.addEventListener('submit', async function (e) {
-        e.preventDefault();
-        const clave = (document.getElementById('claveDevoluciones') || {}).value || '';
-        setMsg('devolucionLockMsg', 'Validando…');
-        try {
-          const res = await devFetch('/api/devoluciones/validar-clave', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clave: String(clave).trim() })
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.status === 401) {
-            setMsg('devolucionLockMsg', 'Sesión de caja vencida. Vuelve a abrir el terminal.', 'err');
-            return;
-          }
-          if (data.ok) {
-            formAcceso.style.display = 'none';
-            if (panelDevoluciones) panelDevoluciones.style.display = 'block';
-            setMsg('devolucionLockMsg', '');
-            setTimeout(() => { try { inputVenta && inputVenta.focus(); } catch (_) {} }, 50);
-          } else {
-            setMsg('devolucionLockMsg', data.error || 'Clave incorrecta', 'err');
-          }
-        } catch (error) {
-          setMsg('devolucionLockMsg', 'No se pudo validar la clave. Revisa la conexión.', 'err');
-        }
-      });
-    }
 
     if (btnBuscarVenta && !btnBuscarVenta._devBound) {
       btnBuscarVenta._devBound = true;
@@ -110,6 +80,44 @@
         const qty = Number(input.value || 0);
         if (preview) preview.textContent = fmtMoney(Math.max(0, precio * qty));
       });
+    }
+  }
+
+  async function handleDevolucionesBarcode(rawCode) {
+    const code = String(rawCode || '').trim();
+    if (code !== CODIGO_BARRAS_DEVOLUCIONES) return false;
+
+    const wrap = document.getElementById('panelDevolucionesWrap');
+    const acceso = document.getElementById('form-acceso-devoluciones');
+    const panel = document.getElementById('panelDevoluciones');
+    const inputVenta = document.getElementById('devolucionNumeroVenta');
+    if (wrap) wrap.style.display = 'flex';
+
+    setMsg('devolucionLockMsg', 'Validando código…');
+    try {
+      const res = await devFetch('/api/devoluciones/validar-codigo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo_barras: code })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        setMsg('devolucionLockMsg', 'Sesión de caja vencida. Vuelve a abrir el terminal.', 'err');
+        return 'error';
+      }
+      if (!data.ok) {
+        setMsg('devolucionLockMsg', data.error || 'Código de barras no válido.', 'err');
+        return 'error';
+      }
+      if (acceso) acceso.style.display = 'none';
+      if (panel) panel.style.display = 'block';
+      setMsg('devolucionLockMsg', '');
+      setMsg('devolucionMsg', '');
+      setTimeout(() => { try { inputVenta && inputVenta.focus(); } catch (_) {} }, 50);
+      return true;
+    } catch (error) {
+      setMsg('devolucionLockMsg', 'No se pudo validar el código. Revisa la conexión.', 'err');
+      return 'error';
     }
   }
 
@@ -243,6 +251,7 @@
 
   window.buscarVentasCliente = buscarVentasCliente;
   window.procesarDevolucion = procesarDevolucion;
+  window.handleDevolucionesBarcode = handleDevolucionesBarcode;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bindUi);

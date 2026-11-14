@@ -388,20 +388,16 @@
           <div class="dev-hero-chips">
             <span>Plazo 48 horas</span>
             <span>Stock al instante</span>
-            <span>Clave de supervisor</span>
+            <span>Acceso con código de barras</span>
           </div>
         </div>
         <button type="button" id="btnCerrarDevoluciones" class="dev-close" title="Cerrar" aria-label="Cerrar">×</button>
       </div>
-      <form id="form-acceso-devoluciones" class="dev-lock">
+      <div id="form-acceso-devoluciones" class="dev-lock">
         <div class="dev-lock-badge">Acceso protegido</div>
-        <label for="claveDevoluciones">Clave de supervisor</label>
-        <div class="dev-lock-row">
-          <input type="password" id="claveDevoluciones" class="dev-input" placeholder="Escribe la clave" required autocomplete="off">
-          <button type="submit" class="dev-btn dev-btn-primary">Entrar</button>
-        </div>
+        <p>Escanea el código de barras de autorización para abrir Devoluciones.</p>
         <p id="devolucionLockMsg" class="dev-msg" aria-live="polite"></p>
-      </form>
+      </div>
       <div id="panelDevoluciones" class="dev-body" style="display:none;">
         <div class="dev-search">
           <label for="devolucionNumeroVenta">Número de ticket</label>
@@ -452,8 +448,8 @@
   <script src="cliente.js?v=214"></script>
   <script src="admin-mobile.js?v=209"></script>
   <script src="caja-impresora.js?v=222"></script>
-  <script src="devoluciones.js?v=216"></script>
-  <script src="caja-funcionalidades.js?v=228"></script>
+  <script src="devoluciones.js?v=217"></script>
+  <script src="caja-funcionalidades.js?v=229"></script>
   <div id="promoModal" class="promo-modal" data-setup-feature="promotions" style="display:none;">
     <div class="promo-modal-content">
       <button id="promoModalClose" class="btn" style="float:right;">Cerrar</button>

@@ -1121,16 +1121,26 @@ app.get('/api/caja/impresora/estado', requiereRol('cualquiera'), async (_req, re
 });
 
 // ==================== DEVOLUCIONES (CAJA) ====================
-// Validar acceso al módulo de devoluciones mediante clave en tabla configuracion
-app.post('/api/devoluciones/validar-clave', requiereRol('caja'), async (req, res) => {
+// Validar acceso al módulo de devoluciones mediante el código de barras configurado.
+app.post('/api/devoluciones/validar-codigo', requiereRol('caja'), async (req, res) => {
   try {
-    const clave = (req.body && req.body.clave ? String(req.body.clave) : '').trim();
-    if (!clave) return res.json({ ok: false });
-    const [rows] = await pool.query('SELECT valor FROM configuracion WHERE clave = ? LIMIT 1', ['clave_devoluciones']);
-    const ok = rows && rows[0] && String(rows[0].valor) === clave;
-    return res.json({ ok: !!ok });
+    const codigo = (req.body && req.body.codigo_barras ? String(req.body.codigo_barras) : '').trim();
+    if (!codigo) return res.json({ ok: false, error: 'Escanea el código de barras' });
+    await pool.query(`
+      INSERT INTO configuracion (clave, valor, descripcion)
+      SELECT 'codigo_barras_devoluciones', '879436512', 'Código de barras de acceso para módulo de devoluciones'
+      WHERE NOT EXISTS (SELECT 1 FROM configuracion WHERE clave = 'codigo_barras_devoluciones')
+    `);
+    const [rows] = await pool.query(
+      'SELECT valor FROM configuracion WHERE clave = ? LIMIT 1',
+      ['codigo_barras_devoluciones']
+    );
+    const expected = rows && rows[0] ? String(rows[0].valor || '').trim() : '';
+    const ok = !!expected && expected === codigo;
+    return res.json({ ok, error: ok ? null : 'Código de barras no válido' });
   } catch (e) {
-    return res.json({ ok: false });
+    console.error('[DEVOLUCIONES] validar-codigo:', e.message || e);
+    return res.json({ ok: false, error: 'No se pudo validar el código de barras' });
   }
 });
 

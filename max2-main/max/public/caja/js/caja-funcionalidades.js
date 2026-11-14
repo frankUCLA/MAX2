@@ -2048,7 +2048,7 @@ function initPosValeryUI() {
     if (panel) panel.style.display = 'none';
     const form = document.getElementById('form-acceso-devoluciones');
     if (form) {
-      form.reset();
+      if (typeof form.reset === 'function') form.reset();
       form.style.display = '';
     }
     const resultados = document.getElementById('ventasClienteDevolucion');
@@ -2258,6 +2258,14 @@ async function handleBarcodeScan(rawCode) {
   if (!code) {
     focusBarcodeInput();
     return false;
+  }
+  if (typeof window.handleDevolucionesBarcode === 'function') {
+    const resultadoDevolucion = await window.handleDevolucionesBarcode(code);
+    if (resultadoDevolucion !== false) {
+      setScanStatus(resultadoDevolucion === true ? 'ok' : 'error',
+        resultadoDevolucion === true ? '✓ Devoluciones' : '✖ Código de devolución');
+      return true;
+    }
   }
   const prod = findProductoByBarcode(code);
   if (!prod) {
