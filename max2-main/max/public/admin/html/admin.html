@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="/imagen/images.png"/>
     <title>MAX — Administración</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="admin.css?v=222">
+    <link rel="stylesheet" href="admin.css?v=223">
     <script src="/setup-edition.js"></script>
     <script src="max-theme.js"></script>
     <script src="max-ui-dialogs.js?v=208"></script>
@@ -1303,81 +1303,121 @@
                     </button>
                 </div>
                 <div class="admin-stack">
-                <div class="admin-card">
-                    <h4 class="admin-card-title">Registrar producto</h4>
-                    <form id="form-producto-admin" enctype="multipart/form-data" class="admin-form-grid">
-                        <div class="admin-field">
-                            <label>Nombre *</label>
-                            <input id="prodNombre" placeholder="Ej: Arroz, Blusa, Aceite" class="input" required>
+                <div class="admin-card admin-product-card">
+                    <div class="admin-product-intro">
+                        <div>
+                            <h4 class="admin-card-title">Registrar producto</h4>
+                            <p>Completa la información para agregar un producto al inventario.</p>
                         </div>
-                        <div class="admin-field">
-                            <label>Marca / Fabricante</label>
-                            <input id="prodMarca" placeholder="Opcional (Genérico)" class="input">
-                        </div>
-                        <div class="admin-field">
-                            <label>Categoría *</label>
-                            <select id="prodCategoria" class="input" required>
-                                <option value="">Selecciona categoría</option>
-                            </select>
-                        </div>
-                        <div class="admin-field">
-                            <label>Proveedor</label>
-                            <select id="prodProveedor" class="input">
-                                <option value="">Sin proveedor</option>
-                            </select>
-                        </div>
-                        <div class="admin-field">
-                            <label>Precio venta base ($) *</label>
-                            <input id="prodPrecio" placeholder="0.00" type="number" step="0.01" min="0" class="input" required>
-                            <small id="prodPrecioIvaHint" style="color:#64748b;display:block;margin-top:4px;">Precio base. Si activas IVA en Impuestos, se sumará al público.</small>
-                            <div id="prodPrecioPublicoWrap" class="prod-precio-publico" style="display:none;">
-                              <strong id="prodPrecioPublico">—</strong>
+                        <span class="admin-product-required"><span aria-hidden="true">*</span> Campos obligatorios</span>
+                    </div>
+                    <form id="form-producto-admin" enctype="multipart/form-data" class="admin-form-grid admin-product-form">
+                        <section class="admin-product-section" aria-labelledby="prodDatosTitle">
+                            <div class="admin-product-section-head">
+                                <span class="admin-product-step" aria-hidden="true">01</span>
+                                <div>
+                                    <h5 id="prodDatosTitle">Datos del producto</h5>
+                                    <p>Identifica el artículo y clasifícalo.</p>
+                                </div>
                             </div>
-                        </div>
-                        <div class="admin-field">
-                            <label>Unidad de medida *</label>
-                            <select id="prodUnidad" class="input" required>
-                                <option value="UNIDAD">Unidad (pieza)</option>
-                                <option value="KILO">Kilo (kg)</option>
-                                <option value="GRAMO">Gramo (g)</option>
-                                <option value="LITRO">Litro (L)</option>
-                                <option value="METRO">Metro (m)</option>
-                                <option value="CAJA">Caja</option>
-                                <option value="PAQUETE">Paquete</option>
-                            </select>
-                        </div>
-                        <div class="admin-field" id="prodEmpaqueWrap" style="display:none;">
-                            <label id="prodEmpaqueLabel">Unidades por caja *</label>
-                            <input id="prodUnidadesEmpaque" type="number" step="0.001" min="0.001" class="input" placeholder="Ej: 12, 24, 48…">
-                            <small style="color:#64748b;display:block;margin-top:4px;">Cuántas piezas/unidades trae cada caja o paquete</small>
-                        </div>
-                        <div class="admin-field">
-                            <label>Stock inicial</label>
-                            <input id="prodStock" type="number" step="0.000001" min="0" value="0" class="input" placeholder="En la unidad elegida (ej. cajas)">
-                        </div>
-                        <div class="admin-field">
-                            <label>Stock mínimo (alerta)</label>
-                            <input id="prodStockMinimo" placeholder="0" type="number" step="0.000001" min="0" value="0" class="input">
-                        </div>
-                        <div class="admin-field admin-field-wide barcode-field-card">
-                            <label for="prodCodigoBarras">Código de barras <span class="barcode-scan-badge">Escáner USB listo</span></label>
-                            <div class="barcode-input-row">
-                                <input id="prodCodigoBarras" class="input barcode-input" placeholder="Escanea el código aquí o escríbelo" autocomplete="off">
-                                <button type="button" class="btn secondary barcode-clear-btn" id="prodCodigoBarrasClear" title="Limpiar código">Limpiar</button>
+                            <div class="admin-product-grid">
+                                <div class="admin-field">
+                                    <label for="prodNombre">Nombre <span class="admin-product-required-mark">*</span></label>
+                                    <input id="prodNombre" placeholder="Ej: Arroz, Blusa, Aceite" class="input" required>
+                                </div>
+                                <div class="admin-field">
+                                    <label for="prodMarca">Marca / Fabricante</label>
+                                    <input id="prodMarca" placeholder="Opcional (Genérico)" class="input">
+                                </div>
+                                <div class="admin-field">
+                                    <label for="prodCategoria">Categoría <span class="admin-product-required-mark">*</span></label>
+                                    <select id="prodCategoria" class="input" required>
+                                        <option value="">Selecciona categoría</option>
+                                    </select>
+                                </div>
+                                <div class="admin-field">
+                                    <label for="prodProveedor">Proveedor</label>
+                                    <select id="prodProveedor" class="input">
+                                        <option value="">Sin proveedor</option>
+                                    </select>
+                                </div>
                             </div>
-                            <small class="barcode-help">Conecta el lector USB, haz clic en este campo y escanea el producto. Quedará guardado al crear el ítem.</small>
-                        </div>
-                        <div class="admin-field admin-field-wide">
-                            <label>Imagen del producto <span id="prodImagenReqMark">*</span></label>
-                            <input id="prodImagen" type="file" accept="image/*" class="input">
-                            <small id="prodImagenHint" style="color:#64748b;display:block;margin-top:4px;">Obligatoria solo si es un producto nuevo. Si ya existe (mismo nombre, marca y categoría), se actualiza sin imagen. No se permite reutilizar la imagen de otro producto.</small>
-                            <div id="prodImagenPreview" class="admin-img-preview" style="display:none;">
-                                <img id="prodImagenPreviewImg" alt="Vista previa">
+                        </section>
+                        <section class="admin-product-section" aria-labelledby="prodInventarioTitle">
+                            <div class="admin-product-section-head">
+                                <span class="admin-product-step" aria-hidden="true">02</span>
+                                <div>
+                                    <h5 id="prodInventarioTitle">Precio e inventario</h5>
+                                    <p>Configura el precio base, la unidad y las existencias.</p>
+                                </div>
                             </div>
-                            <div id="prodImagenDupHint" class="prod-existente-hint" style="display:none;color:#b45309;border-color:#f59e0b;background:#fffbeb;"></div>
-                            <div id="prodExistenteHint" class="prod-existente-hint" style="display:none;"></div>
-                        </div>
-                        <div class="admin-field admin-field-wide">
+                            <div class="admin-product-grid">
+                                <div class="admin-field">
+                                    <label for="prodPrecio">Precio venta base ($) <span class="admin-product-required-mark">*</span></label>
+                                    <input id="prodPrecio" placeholder="0.00" type="number" step="0.01" min="0" class="input" required>
+                                    <small id="prodPrecioIvaHint" class="admin-product-help">Precio base. Si activas IVA en Impuestos, se sumará al público.</small>
+                                    <div id="prodPrecioPublicoWrap" class="prod-precio-publico" style="display:none;">
+                                      <strong id="prodPrecioPublico">—</strong>
+                                    </div>
+                                </div>
+                                <div class="admin-field">
+                                    <label for="prodUnidad">Unidad de medida <span class="admin-product-required-mark">*</span></label>
+                                    <select id="prodUnidad" class="input" required>
+                                        <option value="UNIDAD">Unidad (pieza)</option>
+                                        <option value="KILO">Kilo (kg)</option>
+                                        <option value="GRAMO">Gramo (g)</option>
+                                        <option value="LITRO">Litro (L)</option>
+                                        <option value="METRO">Metro (m)</option>
+                                        <option value="CAJA">Caja</option>
+                                        <option value="PAQUETE">Paquete</option>
+                                    </select>
+                                </div>
+                                <div class="admin-field" id="prodEmpaqueWrap" style="display:none;">
+                                    <label id="prodEmpaqueLabel" for="prodUnidadesEmpaque">Unidades por caja *</label>
+                                    <input id="prodUnidadesEmpaque" type="number" step="0.001" min="0.001" class="input" placeholder="Ej: 12, 24, 48…">
+                                    <small class="admin-product-help">Cuántas piezas/unidades trae cada caja o paquete</small>
+                                </div>
+                                <div class="admin-field">
+                                    <label for="prodStock">Stock inicial</label>
+                                    <input id="prodStock" type="number" step="0.000001" min="0" value="0" class="input" placeholder="En la unidad elegida (ej. cajas)">
+                                </div>
+                                <div class="admin-field">
+                                    <label for="prodStockMinimo">Stock mínimo (alerta)</label>
+                                    <input id="prodStockMinimo" placeholder="0" type="number" step="0.000001" min="0" value="0" class="input">
+                                </div>
+                            </div>
+                        </section>
+                        <section class="admin-product-section" aria-labelledby="prodIdentificacionTitle">
+                            <div class="admin-product-section-head">
+                                <span class="admin-product-step" aria-hidden="true">03</span>
+                                <div>
+                                    <h5 id="prodIdentificacionTitle">Identificación y foto</h5>
+                                    <p>Agrega un código para el escáner y una imagen de referencia.</p>
+                                </div>
+                            </div>
+                            <div class="admin-product-grid admin-product-assets">
+                                <div class="admin-field barcode-field-card">
+                                    <label for="prodCodigoBarras">Código de barras <span class="barcode-scan-badge">Escáner USB listo</span></label>
+                                    <div class="barcode-input-row">
+                                        <input id="prodCodigoBarras" class="input barcode-input" placeholder="Escanea o escribe el código" autocomplete="off">
+                                        <button type="button" class="btn secondary barcode-clear-btn" id="prodCodigoBarrasClear" title="Limpiar código">Limpiar</button>
+                                    </div>
+                                    <small class="barcode-help">Haz clic en el campo y escanea el producto. El código se guardará al crear el artículo.</small>
+                                </div>
+                                <div class="admin-field admin-product-image-field">
+                                    <label for="prodImagen">Imagen del producto <span id="prodImagenReqMark" class="admin-product-required-mark">*</span></label>
+                                    <input id="prodImagen" type="file" accept="image/*" class="input" aria-describedby="prodImagenHint">
+                                    <small id="prodImagenHint" class="admin-product-help">Obligatoria solo para productos nuevos. Si ya existe (mismo nombre, marca y categoría), se actualiza sin imagen. No se permite reutilizar la imagen de otro producto.</small>
+                                    <div id="prodImagenPreview" class="admin-img-preview" style="display:none;">
+                                        <img id="prodImagenPreviewImg" alt="Vista previa de la imagen del producto">
+                                    </div>
+                                    <div id="prodImagenDupHint" class="prod-existente-hint" style="display:none;color:#b45309;border-color:#f59e0b;background:#fffbeb;"></div>
+                                    <div id="prodExistenteHint" class="prod-existente-hint" style="display:none;"></div>
+                                </div>
+                            </div>
+                        </section>
+                        <div class="admin-product-actions">
+                            <span>Revisa los datos antes de guardar. Los campos con <span class="admin-product-required-mark">*</span> son obligatorios.</span>
                             <button id="btnCrearProd" class="btn primary" type="submit">Guardar producto</button>
                         </div>
                     </form>

@@ -1577,3 +1577,403 @@
   .pos-pago-method-grid { display: grid; grid-template-columns: 1fr 1fr; }
 }
 
+/* Caja: jerarquía visual y controles consistentes */
+.pos-body {
+  background: #edf2f8;
+}
+.pos-header {
+  position: relative;
+  z-index: 2;
+  min-height: 68px;
+  height: auto;
+  padding: 8px 18px;
+  background: linear-gradient(115deg, #123b74 0%, var(--primary-dark) 58%, var(--primary) 100%);
+  box-shadow: 0 5px 18px rgba(15, 23, 42, 0.16);
+}
+.pos-brand {
+  min-width: 0;
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  letter-spacing: 0.04em;
+}
+.pos-meta {
+  gap: 8px 12px;
+}
+.pos-meta > span:not(.pos-printer-chip):not(.badge):not(.status-msg) {
+  font-weight: 600;
+}
+.pos-totals-head {
+  gap: 8px;
+}
+.pos-total-chip {
+  min-width: 92px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.13);
+}
+.pos-total-chip span {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.pos-total-chip strong {
+  font-family: var(--font-brand);
+  font-size: 1.18rem;
+}
+.pos-total-chip.accent {
+  background: rgba(255, 255, 255, 0.23);
+}
+.pos-main {
+  grid-template-columns: minmax(340px, 42%) minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+}
+.pos-ticket,
+.pos-catalog {
+  min-width: 0;
+  border: 1px solid #dfe6ef;
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+.pos-ticket {
+  padding: 14px;
+  border-right: 1px solid #dfe6ef;
+}
+.pos-client-card {
+  padding: 14px;
+  border-color: #e2e8f0;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #f8fbff 0%, #fff 75%);
+}
+.pos-client-head strong {
+  font-size: 0.95rem;
+}
+.pos-field > span {
+  font-size: 0.74rem;
+}
+.pos-input,
+.pos-search {
+  min-height: 42px;
+  border: 1px solid #d5deea;
+  border-radius: 10px;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.pos-input:focus,
+.pos-search:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.pos-search-wrap {
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.pos-search {
+  padding-left: 14px;
+}
+.pos-barcode-row {
+  gap: 9px;
+}
+.pos-scan-status {
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.pos-ticket-table-wrap {
+  border-color: #e2e8f0;
+  border-radius: 12px;
+}
+.pos-ticket-table th {
+  padding: 10px;
+  background: #f5f7fb;
+}
+.pos-ticket-table td {
+  padding: 10px;
+}
+.pos-ticket-foot {
+  gap: 12px;
+  padding: 12px 4px 0;
+}
+.pos-ticket-actions {
+  margin-left: auto;
+}
+.pos-catalog {
+  padding: 14px;
+  background: #f6f8fc;
+}
+.pos-dept-bar {
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.pos-dept-scroll {
+  gap: 8px;
+}
+.pos-dept-btn {
+  min-height: 38px;
+  padding: 7px 14px;
+  border-color: #dce4ef;
+  border-radius: 999px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.pos-dept-btn:not(.active):hover {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+.pos-grid {
+  gap: 12px;
+}
+.pos-tile {
+  min-height: 0;
+  border-color: #e1e7f0;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+.pos-tile:hover {
+  border-color: var(--primary);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.14);
+}
+.pos-tile img,
+.pos-tile-ph {
+  border-radius: 9px;
+}
+.pos-tile-name {
+  padding: 8px 7px 3px;
+  font-size: 0.76rem;
+}
+.pos-tile-price {
+  padding: 0 6px 9px;
+  font-size: 0.75rem;
+}
+.pos-action-bar {
+  gap: 8px;
+  padding: 10px;
+  border-color: #e1e7f0;
+  border-radius: 14px;
+}
+.pos-tool-btn,
+.pos-action-bar .pos-secondary-btn,
+.pos-action-bar .pos-pay-btn {
+  min-height: 44px;
+  border-radius: 11px;
+}
+.pos-tool-btn {
+  padding: 9px 12px;
+}
+.pos-action-bar #btnToggleDevoluciones {
+  background: #eff6ff;
+  color: var(--primary-dark);
+  border: 1px solid #bfdbfe;
+}
+.pos-action-bar #btnToggleDevoluciones:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+.pos-action-bar #btnToggleDevoluciones .pos-ico {
+  color: var(--primary);
+}
+.pos-pay-btn {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.24);
+}
+.pos-pay-btn:focus-visible,
+.pos-tool-btn:focus-visible,
+.pos-secondary-btn:focus-visible,
+.pos-icon-btn:focus-visible,
+.pos-dept-btn:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.4);
+  outline-offset: 2px;
+}
+.pos-modal {
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(5px);
+}
+.pos-modal-card {
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 18px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+}
+.pos-pago-shell {
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 20px;
+  box-shadow: 0 28px 72px rgba(15, 23, 42, 0.32);
+}
+.pos-pago-head {
+  background: linear-gradient(115deg, #123b74, var(--primary-dark), var(--primary));
+}
+.pos-pago-method {
+  border-radius: 12px;
+}
+.pos-pago-amount-input {
+  border-radius: 10px;
+}
+.pos-devoluciones {
+  background: rgba(15, 23, 42, 0.66);
+  backdrop-filter: blur(9px);
+}
+.dev-card {
+  width: min(900px, 100%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 24px;
+  box-shadow: 0 32px 90px rgba(15, 23, 42, 0.34);
+}
+.dev-hero {
+  background:
+    radial-gradient(900px 220px at 90% -40%, rgba(255, 255, 255, 0.24), transparent 58%),
+    linear-gradient(120deg, #123b74 0%, var(--primary-dark) 58%, var(--primary) 100%);
+}
+.dev-lock-badge {
+  background: #eff6ff;
+  color: var(--primary-dark);
+}
+.dev-lock label,
+.dev-search label {
+  color: #334155;
+}
+.dev-input {
+  border-color: #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.dev-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.13);
+}
+.dev-btn {
+  border-radius: 12px;
+  transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.dev-btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  box-shadow: 0 7px 18px rgba(37, 99, 235, 0.22);
+}
+.dev-ticket {
+  border-color: #dbe5f0;
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+}
+.dev-ticket-head {
+  background: linear-gradient(180deg, #f3f7fd, #fff);
+  border-bottom-color: #e5ebf3;
+}
+.dev-ticket-head strong,
+.dev-line-name {
+  color: #1e3a5f;
+}
+.dev-line {
+  border-top-color: #edf1f6;
+}
+.dev-qty {
+  border-color: #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.dev-qty:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.dev-empty {
+  background: linear-gradient(180deg, #f3f7fd, #fff);
+}
+.dev-empty strong {
+  color: var(--primary-dark);
+}
+
+@media (max-width: 1100px) {
+  .pos-header {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 10px 14px;
+  }
+  .pos-meta {
+    min-width: 180px;
+  }
+  .pos-main {
+    grid-template-columns: minmax(300px, 40%) minmax(0, 1fr);
+  }
+  .pos-action-bar {
+    justify-content: flex-start;
+  }
+  .pos-pay-btn {
+    margin-left: auto;
+  }
+}
+@media (max-width: 900px) {
+  .pos-main {
+    gap: 12px;
+    padding: 10px;
+  }
+  .pos-ticket {
+    max-height: 60vh;
+  }
+  .pos-catalog {
+    min-height: 65vh;
+  }
+}
+@media (max-width: 560px) {
+  .pos-header {
+    align-items: flex-start;
+  }
+  .pos-meta {
+    flex-basis: calc(100% - 90px);
+    gap: 6px 8px;
+    font-size: 0.72rem;
+  }
+  .pos-totals-head {
+    order: 3;
+    flex: 1 1 100%;
+  }
+  .pos-total-chip {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+  }
+  .pos-exit-btn {
+    padding: 8px 10px;
+  }
+  .pos-ticket,
+  .pos-catalog {
+    padding: 10px;
+    border-radius: 14px;
+  }
+  .pos-ticket {
+    max-height: 68vh;
+  }
+  .pos-action-bar > button {
+    flex: 1 1 calc(50% - 8px);
+    justify-content: center;
+  }
+  .pos-action-bar .pos-pay-btn {
+    flex: 1 1 100%;
+    margin-left: 0;
+    justify-content: center;
+  }
+  .pos-devoluciones {
+    padding: 14px 10px 24px;
+  }
+  .dev-card {
+    border-radius: 18px;
+  }
+  .dev-hero {
+    padding: 20px 18px;
+  }
+  .dev-lock,
+  .dev-body {
+    padding: 18px;
+  }
+  .dev-lock-row {
+    flex-direction: column;
+  }
+  .dev-input,
+  .dev-btn {
+    width: 100%;
+  }
+}
+
