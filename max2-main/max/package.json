@@ -4,6 +4,10 @@
   "description": "MAX ERP comercial con POS, inventario y finanzas",
   "main": "electron/main.js",
   "author": "MAX",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/frankUCLA/MAX2.git"
+  },
   "scripts": {
     "start": "node servidor/servidor.js",
     "desktop": "electron .",

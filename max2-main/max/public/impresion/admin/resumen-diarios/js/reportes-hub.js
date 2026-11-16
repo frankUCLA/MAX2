@@ -474,7 +474,7 @@
             <td class="r">${money(r.total_bs)}</td>
           </tr>`
         );
-        const detRows = detalle.slice(0, 80).map(d =>
+        const detRows = detalle.slice(0, 5000).map(d =>
           `<tr>
             <td>#${d.id_venta}</td>
             <td>${d.forma_pago || '—'}</td>

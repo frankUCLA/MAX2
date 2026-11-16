@@ -5758,7 +5758,7 @@ app.get('/api/reportes/tipos-pago', requiereRol('administrador'), async (req, re
        LEFT JOIN venta_pagos vp ON vp.id_venta = v.id_venta
        WHERE ${where}
        ORDER BY v.fecha_hora DESC
-       LIMIT 200`,
+       LIMIT 5000`,
       params
     );
     const totalUsd = rows.reduce((s, r) => s + Number(r.total_usd || 0), 0);
