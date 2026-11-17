@@ -201,6 +201,18 @@ function requiereRol(rol) {
   };
 }
 
+function requiereCodigoBarrasEdicionInventario(req, res, next) {
+  const autorizadoHasta = Number(req.session && req.session.inventarioEdicionAutorizadaHasta) || 0;
+  if (autorizadoHasta > Date.now()) {
+    delete req.session.inventarioEdicionAutorizadaHasta;
+    return next();
+  }
+  return res.status(403).json({
+    ok: false,
+    error: 'Escanea el código de barras de autorización antes de editar el producto'
+  });
+}
+
 /** Garantiza un id_usuario válido para INSERT en ventas (NOT NULL). */
 async function resolveUserIdForVenta(req) {
   const fromSession = req.session && req.session.user && req.session.user.id;
@@ -2904,8 +2916,32 @@ app.get('/api/admin/productos/:id', requiereRol('administrador'), async (req, re
     res.json({ producto: null });
   }
 });
+
+app.post('/api/admin/productos/validar-codigo-barras', requiereRol('administrador'), async (req, res) => {
+  try {
+    const codigo = String(req.body && req.body.codigo_barras || '').trim();
+    if (!codigo) {
+      return res.status(400).json({ ok: false, error: 'Escanea el código de barras de autorización' });
+    }
+    await ensureDevolucionesSchema(pool);
+    const [rows] = await pool.query(
+      'SELECT valor FROM configuracion WHERE clave = ? LIMIT 1',
+      ['codigo_barras_devoluciones']
+    );
+    const codigoEsperado = rows && rows[0] ? String(rows[0].valor || '').trim() : '';
+    if (!codigoEsperado || codigo !== codigoEsperado) {
+      return res.status(403).json({ ok: false, error: 'Código de barras no válido' });
+    }
+    req.session.inventarioEdicionAutorizadaHasta = Date.now() + (10 * 60 * 1000);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[INVENTARIO] validar código de edición:', e.message || e);
+    return res.status(500).json({ ok: false, error: 'No se pudo validar el código de barras' });
+  }
+});
+
 // Editar producto (PUT) - Actualiza producto y maneja tallas sumando cantidades
-app.put('/api/admin/productos/:id', requiereRol('administrador'), (req, res, next) => {
+app.put('/api/admin/productos/:id', requiereRol('administrador'), requiereCodigoBarrasEdicionInventario, (req, res, next) => {
   upload.single('imagen')(req, res, (err) => {
     if (err) return res.status(400).json({ ok: false, message: multerImageError(err) });
     next();

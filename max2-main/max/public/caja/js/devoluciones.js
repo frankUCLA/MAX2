@@ -2,8 +2,6 @@
   devoluciones.js — módulo de devoluciones en caja
 */
 (function () {
-  const CODIGO_BARRAS_DEVOLUCIONES = '879436512';
-
   function devFetch(path, opts) {
     if (typeof posFetch === 'function') return posFetch(path, opts);
     const base = (localStorage.getItem('serverBaseUrl') || '').replace(/\/$/, '');
@@ -85,13 +83,12 @@
 
   async function handleDevolucionesBarcode(rawCode) {
     const code = String(rawCode || '').trim();
-    if (code !== CODIGO_BARRAS_DEVOLUCIONES) return false;
+    if (!code) return false;
 
     const wrap = document.getElementById('panelDevolucionesWrap');
     const acceso = document.getElementById('form-acceso-devoluciones');
     const panel = document.getElementById('panelDevoluciones');
     const inputVenta = document.getElementById('devolucionNumeroVenta');
-    if (wrap) wrap.style.display = 'flex';
 
     setMsg('devolucionLockMsg', 'Validando código…');
     try {
@@ -102,13 +99,17 @@
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 401) {
+        if (wrap) wrap.style.display = 'flex';
         setMsg('devolucionLockMsg', 'Sesión de caja vencida. Vuelve a abrir el terminal.', 'err');
         return 'error';
       }
-      if (!data.ok) {
-        setMsg('devolucionLockMsg', data.error || 'Código de barras no válido.', 'err');
+      if (!res.ok) {
+        if (wrap) wrap.style.display = 'flex';
+        setMsg('devolucionLockMsg', data.error || 'No se pudo validar el código de barras.', 'err');
         return 'error';
       }
+      if (!data.ok) return false;
+      if (wrap) wrap.style.display = 'flex';
       if (acceso) acceso.style.display = 'none';
       if (panel) panel.style.display = 'block';
       setMsg('devolucionLockMsg', '');

@@ -672,12 +672,46 @@ function registerLicenciasRoutes(app, { pool, requiereRol, isCajaMayorRequest, g
       if (!(await tableExists(pool, 'cajas'))) {
         return res.status(503).json({ ok: false, error: 'Módulo de cajas no instalado. Ejecuta la migración SQL 002.' });
       }
-      const { clave_caja, usuario, password, direccion_mac, token_sesion: tokenCliente } = req.body || {};
-      if (!clave_caja) return res.status(400).json({ ok: false, error: 'clave_caja requerida' });
+      const {
+        clave_caja,
+        codigo_barras,
+        usuario,
+        password,
+        direccion_mac,
+        token_sesion: tokenCliente
+      } = req.body || {};
+      let claveCajaIngresada = clave_caja;
+      if (isMayorRequest(req)) {
+        const codigo = String(codigo_barras || '').trim();
+        if (!codigo) return res.status(400).json({ ok: false, error: 'Escanea el código de barras de autorización' });
+        if (!(await tableExists(pool, 'configuracion'))) {
+          return res.status(503).json({ ok: false, error: 'No está disponible la configuración del código de autorización' });
+        }
+        const [codigos] = await pool.query(
+          'SELECT valor FROM configuracion WHERE clave = ? LIMIT 1',
+          ['codigo_barras_devoluciones']
+        );
+        const codigoEsperado = codigos && codigos[0] ? String(codigos[0].valor || '').trim() : '';
+        if (!codigoEsperado || codigo !== codigoEsperado) {
+          return res.status(401).json({ ok: false, error: 'Código de barras no válido' });
+        }
+        const [cajasMayor] = await pool.query(
+          `SELECT clave_caja FROM cajas
+           WHERE LOWER(TRIM(COALESCE(nombre_caja, ''))) = 'caja mayor'
+             AND estado = ? LIMIT 1`,
+          ['ACTIVA']
+        );
+        if (!cajasMayor.length) {
+          return res.status(404).json({ ok: false, error: 'No hay una terminal Caja Mayor activa registrada' });
+        }
+        claveCajaIngresada = cajasMayor[0].clave_caja;
+      } else if (!claveCajaIngresada) {
+        return res.status(400).json({ ok: false, error: 'clave_caja requerida' });
+      }
 
       const [cajaRows] = await pool.query(
         'SELECT * FROM cajas WHERE clave_caja = ? AND estado = ? LIMIT 1',
-        [clave_caja, 'ACTIVA']
+        [claveCajaIngresada, 'ACTIVA']
       );
       if (!cajaRows.length) return res.status(401).json({ ok: false, error: 'Caja no encontrada o inactiva' });
       const caja = cajaRows[0];

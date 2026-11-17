@@ -9,8 +9,8 @@ echo ============================================
 echo   MAX ERP  —  Generar setup 8.0.0
 echo ============================================
 echo.
-echo Este instalador incluye el acceso a devoluciones
-echo mediante el escaneo del codigo de barras.
+echo Este instalador incluye acceso a Caja Mayor y devoluciones
+echo con codigo de barras, y proteccion al editar inventario.
 echo.
 echo Cierra MAX si esta abierto antes de continuar.
 echo.

@@ -359,7 +359,40 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
     }
+    async function validarCodigoBarrasEdicionInventario() {
+        const codigo = window.prompt('Escanea el código de barras de autorización para editar productos:');
+        if (codigo === null) return false;
+        if (!codigo.trim()) {
+            const mensaje = 'Escanea el código de barras de autorización.';
+            if (typeof showAdminToast === 'function') showAdminToast(mensaje, 'warn');
+            else alert(mensaje);
+            return false;
+        }
+        try {
+            const res = await fetch('/api/admin/productos/validar-codigo-barras', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codigo_barras: codigo.trim() })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) {
+                const mensaje = data.error || 'No se pudo validar el código de barras.';
+                if (typeof showAdminToast === 'function') showAdminToast(mensaje, 'error');
+                else alert(mensaje);
+                return false;
+            }
+            return true;
+        } catch (error) {
+            console.error('Error validando código para editar producto:', error);
+            const mensaje = 'No se pudo validar el código de barras. Revisa la conexión.';
+            if (typeof showAdminToast === 'function') showAdminToast(mensaje, 'error');
+            else alert(mensaje);
+            return false;
+        }
+    }
     window.editarProducto = async function(id) {
+        if (!(await validarCodigoBarrasEdicionInventario())) return;
         try {
             const res = await fetch(`/api/admin/productos/${id}`);
             const data = await res.json();

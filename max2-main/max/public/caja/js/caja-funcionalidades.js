@@ -2259,7 +2259,8 @@ async function handleBarcodeScan(rawCode) {
     focusBarcodeInput();
     return false;
   }
-  if (typeof window.handleDevolucionesBarcode === 'function') {
+  const prod = findProductoByBarcode(code);
+  if (!prod && typeof window.handleDevolucionesBarcode === 'function') {
     const resultadoDevolucion = await window.handleDevolucionesBarcode(code);
     if (resultadoDevolucion !== false) {
       setScanStatus(resultadoDevolucion === true ? 'ok' : 'error',
@@ -2267,7 +2268,6 @@ async function handleBarcodeScan(rawCode) {
       return true;
     }
   }
-  const prod = findProductoByBarcode(code);
   if (!prod) {
     beepScan(false);
     setScanStatus('error', '✖ No encontrado');
@@ -2982,8 +2982,10 @@ async function setupPosTerminalGate() {
     const expectedPort = window.location.port || '3011';
     if (badge) badge.style.display = '';
     if (title) title.textContent = 'Abrir terminal Caja Mayor';
-    if (hint) hint.textContent = 'Ingresa la clave de acceso de la terminal Caja Mayor registrada por el administrador.';
-    if (label) label.textContent = 'Clave de Caja Mayor';
+    if (hint) hint.textContent = 'Escanea el código de barras de autorización para abrir Caja Mayor.';
+    if (label) label.textContent = 'Código de barras';
+    const accessInput = document.getElementById('posClaveCaja');
+    if (accessInput) accessInput.placeholder = 'Escanea el código de barras';
     if (serverLabel) serverLabel.textContent = 'Servidor Caja Mayor (solo si esta PC no es el servidor)';
     if (serverTip) serverTip.textContent = `Usa la IP del servidor con el puerto ${expectedPort}. Si ya se conectó antes, deja el campo vacío.`;
     if (serverUrlInput) serverUrlInput.placeholder = `http://192.168.1.124:${expectedPort}`;
@@ -3007,6 +3009,10 @@ async function setupPosTerminalGate() {
     // Sesión caducada o servidor no respondió: pedir abrir de nuevo (mismo token permite reconectar)
   }
   gate.style.display = 'flex';
+  if (CAJA_MAYOR_MODE) {
+    const accessInput = document.getElementById('posClaveCaja');
+    if (accessInput) accessInput.focus();
+  }
 
   const urlInput = document.getElementById('posServerUrl');
   if (urlInput) urlInput.value = localStorage.getItem('serverBaseUrl') || '';
@@ -3023,7 +3029,9 @@ async function setupPosTerminalGate() {
         serverUrl = 'http://' + serverUrl;
       }
       if (!clave.trim()) {
-        if (msg) msg.textContent = 'Ingresa la clave de la caja';
+        if (msg) msg.textContent = CAJA_MAYOR_MODE
+          ? 'Escanea el código de barras de autorización'
+          : 'Ingresa la clave de la caja';
         return;
       }
       if (serverUrl && CAJA_MAYOR_MODE) {
@@ -3049,7 +3057,9 @@ async function setupPosTerminalGate() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            clave_caja: clave.trim(),
+            ...(CAJA_MAYOR_MODE
+              ? { codigo_barras: clave.trim() }
+              : { clave_caja: clave.trim() }),
             token_sesion: tokenExistente || undefined
           })
         });
@@ -3092,6 +3102,15 @@ async function setupPosTerminalGate() {
         }
       }
     });
+    const accessInput = document.getElementById('posClaveCaja');
+    if (accessInput) {
+      accessInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          openBtn.click();
+        }
+      });
+    }
   }
 
   // No permitir saltar el login de terminal con Escape (rompe productos/APIs)
