@@ -85,6 +85,9 @@ const ADMIN_SETUP_CODE_TTL_MS = 10 * 60 * 1000;
 const ADMIN_SETUP_CODE_RESEND_MS = 60 * 1000;
 const ADMIN_SETUP_CODE_MAX_ATTEMPTS = 5;
 const ADMIN_SETUP_VERIFIED_TTL_MS = 5 * 60 * 1000;
+const ADMIN_SETUP_OAUTH_TOKEN_FILE = '.admin-password-email-oauth.json';
+const ADMIN_SETUP_OAUTH_STATE_TTL_MS = 5 * 60 * 1000;
+let adminSetupOAuthState = null;
 const adminPasswordVerification = {
   codeHash: '',
   expiresAt: 0,
@@ -114,6 +117,38 @@ function isLocalAdminSetupRequest(req) {
 
 function hashAdminSetupCode(code) {
   return crypto.createHash('sha256').update(code).digest();
+}
+
+function getAdminSetupOAuthConfig() {
+  const clientId = String(process.env.GOOGLE_OAUTH_CLIENT_ID || '').trim();
+  const clientSecret = String(process.env.GOOGLE_OAUTH_CLIENT_SECRET || '').trim();
+  const redirectUri = `http://localhost:${serverPortState.primaryPort}/api/primer-inicio/oauth/callback`;
+  return { clientId, clientSecret, redirectUri, configured: !!(clientId && clientSecret) };
+}
+
+function readAdminSetupOAuthToken() {
+  try {
+    const token = JSON.parse(fs.readFileSync(resolveData(ADMIN_SETUP_OAUTH_TOKEN_FILE), 'utf8'));
+    return token && token.refresh_token ? token : null;
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.error('[PRIMER INICIO] No se pudo leer autorización OAuth:', error.message || error);
+    }
+    return null;
+  }
+}
+
+function saveAdminSetupOAuthToken(token) {
+  const file = resolveData(ADMIN_SETUP_OAUTH_TOKEN_FILE);
+  ensureDir(path.dirname(file));
+  const tempFile = `${file}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
+  fs.writeFileSync(tempFile, JSON.stringify({
+    refresh_token: token.refresh_token,
+    scope: token.scope || '',
+    token_type: token.token_type || 'Bearer',
+    authorized_at: new Date().toISOString()
+  }), { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+  fs.renameSync(tempFile, file);
 }
 
 app.get('/setup-edition.js', (_req, res) => {
@@ -1281,6 +1316,8 @@ function getLanIps() {
 app.get('/api/status', async (req, res) => {
   const bdOK = await verificarConexiónBD();
   const adminPasswordSetupRequired = isAdminPasswordSetupRequired();
+  const adminEmailOAuthConfig = getAdminSetupOAuthConfig();
+  const adminEmailOAuthAuthorized = !!readAdminSetupOAuthToken();
   const user = req.session.user || null;
   const port = serverPortState.primaryPort;
   const cajaMayorPort = serverPortState.cajaMayorPort;
@@ -1300,6 +1337,9 @@ app.get('/api/status', async (req, res) => {
         servidor: true,
         bd: bdOK,
         admin_password_setup_required: adminPasswordSetupRequired,
+        admin_password_email_oauth_configured: adminEmailOAuthConfig.configured,
+        admin_password_email_oauth_authorized: adminEmailOAuthAuthorized,
+        admin_password_email_oauth_redirect_uri: adminEmailOAuthConfig.redirectUri,
         usuario: null,
         rol: 'Invitado',
         mobile_blocked: true,
@@ -1321,6 +1361,9 @@ app.get('/api/status', async (req, res) => {
     servidor: true,
     bd: bdOK,
     admin_password_setup_required: adminPasswordSetupRequired,
+    admin_password_email_oauth_configured: adminEmailOAuthConfig.configured,
+    admin_password_email_oauth_authorized: adminEmailOAuthAuthorized,
+    admin_password_email_oauth_redirect_uri: adminEmailOAuthConfig.redirectUri,
     usuario: user ? user.usuario : null,
     rol: rol,
     mobile_readonly: !!(req.session && req.session.mobile_readonly),
@@ -1337,6 +1380,93 @@ app.get('/api/status', async (req, res) => {
   });
 });
 
+app.post('/api/primer-inicio/oauth/iniciar', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (!isLocalAdminSetupRequest(req)) {
+    return res.status(403).json({ ok: false, error: 'La autorización solo se puede iniciar desde este equipo.' });
+  }
+  if (!isAdminPasswordSetupRequired()) {
+    return res.status(409).json({ ok: false, error: 'La contraseña inicial ya fue configurada.' });
+  }
+  const config = getAdminSetupOAuthConfig();
+  if (!config.configured) {
+    return res.status(503).json({
+      ok: false,
+      error: 'Faltan GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_CLIENT_SECRET en .env. Configura primero las credenciales OAuth de Google y reinicia MAX.'
+    });
+  }
+
+  const state = crypto.randomBytes(32).toString('hex');
+  adminSetupOAuthState = { value: state, expiresAt: Date.now() + ADMIN_SETUP_OAUTH_STATE_TTL_MS };
+  const authorizeUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  authorizeUrl.search = new URLSearchParams({
+    client_id: config.clientId,
+    redirect_uri: config.redirectUri,
+    response_type: 'code',
+    scope: 'openid email https://www.googleapis.com/auth/gmail.send',
+    access_type: 'offline',
+    prompt: 'consent',
+    state
+  }).toString();
+  return res.json({ ok: true, url: authorizeUrl.toString(), redirect_uri: config.redirectUri });
+});
+
+app.get('/api/primer-inicio/oauth/callback', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const redirectToSetup = (result) => res.redirect('/?correo_oauth=' + encodeURIComponent(result));
+  if (!isLocalAdminSetupRequest(req)) return res.status(403).send('Autorización permitida únicamente desde este equipo.');
+  if (!isAdminPasswordSetupRequired()) return res.status(409).send('La contraseña inicial ya fue configurada.');
+
+  const expectedState = adminSetupOAuthState;
+  adminSetupOAuthState = null;
+  const returnedState = String(req.query.state || '');
+  if (!expectedState
+      || Date.now() >= expectedState.expiresAt
+      || returnedState.length !== expectedState.value.length
+      || !crypto.timingSafeEqual(Buffer.from(returnedState), Buffer.from(expectedState.value))) {
+    return redirectToSetup('state_error');
+  }
+  if (req.query.error) return redirectToSetup('denied');
+  const code = String(req.query.code || '');
+  if (!code) return redirectToSetup('code_error');
+
+  const config = getAdminSetupOAuthConfig();
+  if (!config.configured) return redirectToSetup('config_error');
+  try {
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
+        redirect_uri: config.redirectUri,
+        grant_type: 'authorization_code'
+      }),
+      timeout: 15000
+    });
+    const token = await response.json().catch(() => ({}));
+    if (!response.ok || !token.refresh_token) {
+      console.error('[PRIMER INICIO] Google OAuth no entregó autorización persistente:', token.error || response.status);
+      return redirectToSetup('token_error');
+    }
+    const profileResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+      headers: { Authorization: `Bearer ${token.access_token}` },
+      timeout: 15000
+    });
+    const profile = await profileResponse.json().catch(() => ({}));
+    if (!profileResponse.ok || String(profile.email || '').toLowerCase() !== ADMIN_SETUP_EMAIL) {
+      console.error('[PRIMER INICIO] OAuth autorizó una cuenta de Gmail distinta a la cuenta de envío.');
+      return redirectToSetup('account_error');
+    }
+    saveAdminSetupOAuthToken(token);
+    return redirectToSetup('success');
+  } catch (error) {
+    console.error('[PRIMER INICIO] Error completando OAuth de Google:', error.message || error);
+    return redirectToSetup('connection_error');
+  }
+});
+
 app.post('/api/primer-inicio/enviar-codigo', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   if (!isLocalAdminSetupRequest(req)) {
@@ -1349,16 +1479,16 @@ app.post('/api/primer-inicio/enviar-codigo', async (req, res) => {
     return res.status(409).json({ ok: false, error: 'Ya se está enviando un código. Espera un momento.' });
   }
 
-  const smtpHost = String(process.env.SMTP_HOST || 'smtp.gmail.com').trim();
-  const smtpPort = Number(process.env.SMTP_PORT || 465);
-  const smtpUser = String(process.env.SMTP_USER || ADMIN_SETUP_EMAIL).trim();
-  const smtpPassword = String(process.env.SMTP_PASSWORD || '');
-  const smtpSecure = String(process.env.SMTP_SECURE || 'true').toLowerCase() !== 'false';
-  if (!smtpHost || !Number.isInteger(smtpPort) || smtpPort <= 0 || !smtpUser || !smtpPassword) {
+  const config = getAdminSetupOAuthConfig();
+  const oauthToken = readAdminSetupOAuthToken();
+  if (!config.configured) {
     return res.status(503).json({
       ok: false,
-      error: 'Falta configurar el correo saliente. Agrega SMTP_PASSWORD en el archivo .env usando una contraseña de aplicación de Gmail y reinicia MAX.'
+      error: 'Faltan las credenciales OAuth de Google en .env. Configura GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_CLIENT_SECRET, y reinicia MAX.'
     });
+  }
+  if (!oauthToken) {
+    return res.status(403).json({ ok: false, error: 'Conecta primero la cuenta de Google para autorizar el envío.' });
   }
 
   const now = Date.now();
@@ -1382,16 +1512,20 @@ app.post('/api/primer-inicio/enviar-codigo', async (req, res) => {
     const code = String(crypto.randomInt(100000, 1000000));
     const expiresAt = now + ADMIN_SETUP_CODE_TTL_MS;
     transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpSecure,
-      auth: { user: smtpUser, pass: smtpPassword },
+      service: 'gmail',
+      auth: {
+        type: 'OAuth2',
+        user: ADMIN_SETUP_EMAIL,
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
+        refreshToken: oauthToken.refresh_token
+      },
       connectionTimeout: 15000,
       greetingTimeout: 10000,
       socketTimeout: 20000
     });
     await transporter.sendMail({
-      from: { name: 'MAX ERP', address: smtpUser },
+      from: { name: 'MAX ERP', address: ADMIN_SETUP_EMAIL },
       to: ADMIN_SETUP_EMAIL,
       subject: 'Tu código de verificación para configurar MAX',
       text: [
@@ -1443,7 +1577,7 @@ app.post('/api/primer-inicio/enviar-codigo', async (req, res) => {
     return res.status(502).json({
       ok: false,
       retry_after_seconds: Math.ceil(ADMIN_SETUP_CODE_RESEND_MS / 1000),
-      error: 'No se pudo enviar el correo. Verifica SMTP_HOST, SMTP_USER y SMTP_PASSWORD en .env; para Gmail usa una contraseña de aplicación.'
+      error: 'No se pudo enviar el correo con Gmail. Revisa la autorización de Google y que Gmail API esté habilitada.'
     });
   } finally {
     if (transporter) transporter.close();

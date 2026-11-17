@@ -1,0 +1,9 @@
+{
+  "version": "6.0.0",
+  "features": {
+    "accounting": true,
+    "accountingReports": true,
+    "promotions": true,
+    "cajaMayor": true
+  }
+}

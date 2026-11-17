@@ -1239,13 +1239,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderInitialAdminPasswordForm() {
+    function renderInitialAdminPasswordForm(status) {
+        const oauthConfigured = !!(status && status.admin_password_email_oauth_configured);
+        const oauthAuthorized = !!(status && status.admin_password_email_oauth_authorized);
         if (!loginSection) return;
         loginSection.style.display = 'block';
         loginSection.innerHTML = `
-            <h2>Verifica tu correo</h2>
-            <p class="login-sub">Antes de crear la contraseña inicial, enviaremos un código de seguridad a <strong>maxbyte.solutions01@gmail.com</strong>.</p>
+            <h2>Conecta tu correo</h2>
+            <p class="login-sub">Autoriza de forma segura la cuenta <strong>maxbyte.solutions01@gmail.com</strong> para que MAX envíe el código que habilita la creación de la contraseña inicial.</p>
             <div id="initialAdminPasswordMsg" class="msg" role="status"></div>
+            <div id="adminOAuthSetupHelp" style="display:none;padding:14px;margin:12px 0;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;color:#1e3a8a;font-size:.9rem;line-height:1.55;">
+              En Google Cloud crea credenciales OAuth de tipo <strong>Aplicación web</strong>, activa Gmail API y agrega esta URI de redirección autorizada. Coloca el ID y secreto de cliente en <code>.env</code> junto a MAX.exe y reinicia MAX:
+              <code id="adminOAuthRedirectUri" style="display:block;margin-top:8px;overflow-wrap:anywhere;"></code>
+            </div>
+            <form id="connectAdminGoogleForm" autocomplete="off" style="display:${oauthAuthorized || !oauthConfigured ? 'none' : ''};">
+              <button type="submit" id="connectAdminGoogle" class="btn primary">Conectar con Google</button>
+            </form>
             <form id="sendAdminSetupCodeForm" autocomplete="off">
               <button type="submit" id="sendAdminSetupCode" class="btn primary">Enviar código de verificación</button>
             </form>
@@ -1269,6 +1278,8 @@ document.addEventListener('DOMContentLoaded', () => {
             </form>
         `;
 
+        const connectForm = document.getElementById('connectAdminGoogleForm');
+        const connectButton = document.getElementById('connectAdminGoogle');
         const sendForm = document.getElementById('sendAdminSetupCodeForm');
         const sendButton = document.getElementById('sendAdminSetupCode');
         const verifyForm = document.getElementById('verifyAdminSetupCodeForm');
@@ -1280,7 +1291,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const confirmInput = document.getElementById('confirmAdminPassword');
         const saveButton = document.getElementById('saveInitialAdminPassword');
         const message = document.getElementById('initialAdminPasswordMsg');
-        if (!sendForm || !sendButton || !verifyForm || !codeInput || !verifyButton
+        const setupHelp = document.getElementById('adminOAuthSetupHelp');
+        const redirectUriEl = document.getElementById('adminOAuthRedirectUri');
+        if (sendForm) sendForm.style.display = oauthAuthorized ? '' : 'none';
+        if (setupHelp) setupHelp.style.display = oauthConfigured ? 'none' : '';
+        if (redirectUriEl) redirectUriEl.textContent = String(status && status.admin_password_email_oauth_redirect_uri || '');
+        if (connectForm && !oauthConfigured) connectForm.style.display = 'none';
+        if (!connectForm || !connectButton || !sendForm || !sendButton || !verifyForm || !codeInput || !verifyButton
             || !passwordForm || !passwordInput || !confirmInput || !saveButton || !message) return;
 
         const setMessage = (text, color) => {
@@ -1305,6 +1322,62 @@ document.addEventListener('DOMContentLoaded', () => {
             update();
             if (seconds > 0) resendTimer = setInterval(update, 1000);
         };
+
+        const oauthResult = new URLSearchParams(window.location.search).get('correo_oauth');
+        if (oauthAuthorized && oauthResult === 'success') {
+            setMessage('Cuenta Google conectada. Ya puedes solicitar el código de verificación.', '#10b981');
+        } else if (oauthResult && oauthResult !== 'success') {
+            setMessage('No se pudo completar la conexión con Google. Revisa la configuración e inténtalo otra vez.', '#ef4444');
+        } else if (!oauthConfigured) {
+            setMessage('Antes de continuar, configura GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_CLIENT_SECRET en .env.', '#b45309');
+        }
+
+        connectForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            connectButton.disabled = true;
+            setMessage('Preparando conexión segura con Google…');
+            try {
+                const res = await fetch('/api/primer-inicio/oauth/iniciar', {
+                    method: 'POST',
+                    credentials: 'include',
+                    cache: 'no-store'
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.ok) {
+                    setMessage(data.error || 'No se pudo iniciar la autorización de Google.', '#ef4444');
+                    connectButton.disabled = false;
+                    return;
+                }
+                window.open(data.url, '_blank', 'noopener');
+                setMessage('Completa la autorización en la ventana de Google. Esta pantalla se actualizará al terminar.');
+                let attempts = 0;
+                const pollAuthorization = async () => {
+                    try {
+                        const statusRes = await fetch('/api/status', { credentials: 'include', cache: 'no-store' });
+                        const currentStatus = await statusRes.json();
+                        if (currentStatus.admin_password_email_oauth_authorized) {
+                            if (resendTimer) clearInterval(resendTimer);
+                            renderInitialAdminPasswordForm(currentStatus);
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('Error comprobando la autorización de Google:', error);
+                    }
+                    attempts += 1;
+                    if (attempts >= 120) {
+                        connectButton.disabled = false;
+                        setMessage('No se completó la autorización. Puedes volver a intentarlo.', '#ef4444');
+                        return;
+                    }
+                    setTimeout(pollAuthorization, 2500);
+                };
+                setTimeout(pollAuthorization, 2500);
+            } catch (error) {
+                console.error('Error iniciando autorización OAuth de Google:', error);
+                setMessage('No se pudo conectar con MAX. Intenta de nuevo.', '#ef4444');
+                connectButton.disabled = false;
+            }
+        });
 
         sendForm.addEventListener('submit', async (event) => {
             event.preventDefault();
@@ -1474,7 +1547,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusDisplay.style.color = (data.servidor && data.bd) ? '#10b981' : '#ef4444'; 
 
             if (data.admin_password_setup_required && data.servidor && data.bd) {
-                renderInitialAdminPasswordForm();
+                renderInitialAdminPasswordForm(data);
                 return;
             }
             

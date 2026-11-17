@@ -64,11 +64,8 @@ function ensureEnvFile() {
     LICENCIA_KEY_STANDARD: 'MAX-KEY-STANDARD-8802',
     LICENCIA_KEY_PRO: 'MAX-KEY-PRO-9903',
     LICENCIA_KEY_ULTRA: 'MAX-KEY-ULTRA-0014',
-    SMTP_HOST: 'smtp.gmail.com',
-    SMTP_PORT: '465',
-    SMTP_SECURE: 'true',
-    SMTP_USER: 'maxbyte.solutions01@gmail.com',
-    SMTP_PASSWORD: ''
+    GOOGLE_OAUTH_CLIENT_ID: '',
+    GOOGLE_OAUTH_CLIENT_SECRET: ''
   };
   const fallback = [
     'PORT=3000',
@@ -83,11 +80,8 @@ function ensureEnvFile() {
     'LICENCIA_KEY_STANDARD=MAX-KEY-STANDARD-8802',
     'LICENCIA_KEY_PRO=MAX-KEY-PRO-9903',
     'LICENCIA_KEY_ULTRA=MAX-KEY-ULTRA-0014',
-    'SMTP_HOST=smtp.gmail.com',
-    'SMTP_PORT=465',
-    'SMTP_SECURE=true',
-    'SMTP_USER=maxbyte.solutions01@gmail.com',
-    'SMTP_PASSWORD='
+    'GOOGLE_OAUTH_CLIENT_ID=',
+    'GOOGLE_OAUTH_CLIENT_SECRET='
   ].join('\n') + '\n';
 
   try {
