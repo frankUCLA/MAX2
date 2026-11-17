@@ -456,12 +456,12 @@ async function renderReporteInventario() {
             </thead>
             <tbody>`;
         data.rows.forEach(r => {
-            const tallas = (r.tallas||[]).map(t => `${t.talla||'-'}: ${t.cantidad}`).join(' · ');
+            const tallas = (r.tallas||[]).map(t => `${t.talla||'-'}: ${window.formatStockLabel ? window.formatStockLabel(t.cantidad, 'UNIDAD') : t.cantidad}`).join(' · ');
             html += `<tr>
                 <td style="padding:8px;border:1px solid #f4f4f4;">${r.marca || ''}</td>
                 <td style="padding:8px;border:1px solid #f4f4f4;">${r.nombre}</td>
                 <td style="padding:8px;border:1px solid #f4f4f4;">${r.categoria || 'N/A'}</td>
-                <td style="padding:8px;text-align:right;border:1px solid #f4f4f4;">${(function(row){const v=Number(row.stock_total);if(!Number.isFinite(v))return row.stock_total||'—';const unit=String(row.unidad_medida||'').toUpperCase();const digits=['KILO','KG','LITRO','L'].includes(unit)?6:3;return Math.abs(v-Math.round(v))<1e-9?String(Math.round(v)):String(parseFloat(v.toFixed(digits)));})(r)}</td>
+                <td style="padding:8px;text-align:right;border:1px solid #f4f4f4;">${window.formatStockLabel ? window.formatStockLabel(r.stock_total, r.unidad_medida) : r.stock_total}</td>
                 <td style="padding:8px;border:1px solid #f4f4f4;">${tallas}</td>
             </tr>`;
         });
@@ -707,7 +707,7 @@ async function cargarRotacionInventario() {
                 html += `<tr>
                     <td style="padding:var(--spacing-md);">${r.marca || ''} ${r.nombre || ''}</td>
                     <td style="padding:var(--spacing-md);">${r.categoria || 'N/A'}</td>
-                    <td style="padding:var(--spacing-md);text-align:right;">${r.stock_actual || 0}</td>
+                    <td style="padding:var(--spacing-md);text-align:right;">${window.formatStockLabel ? window.formatStockLabel(r.stock_actual, r.unidad_medida) : (r.stock_actual || 0)}</td>
                     <td style="padding:var(--spacing-md);text-align:right;">${r.unidades_vendidas_ultimo_mes || 0}</td>
                     <td style="padding:var(--spacing-md);text-align:right;font-weight:600;">${parseFloat(r.indice_rotacion||0).toFixed(2)}</td>
                 </tr>`;

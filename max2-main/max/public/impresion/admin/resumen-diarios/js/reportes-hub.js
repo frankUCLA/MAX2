@@ -32,6 +32,17 @@
     return String(parseFloat(v.toFixed(digits)));
   }
 
+  function formatStockLabel(n, unidad) {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return '0';
+    const u = String(unidad || 'UNIDAD').toUpperCase();
+    if (u === 'KILO' || u === 'KG') return `${v.toFixed(3)} kg`;
+    if (u === 'LITRO' || u === 'L') return `${v.toFixed(3)} L`;
+    if (u === 'CAJA') return `${qty(v)} cajas`;
+    if (u === 'PAQUETE') return `${qty(v)} paquetes`;
+    return `${qty(v)} unidades`;
+  }
+
   function fmtDate(v) {
     if (!v) return 'Sin ventas';
     try {
@@ -373,7 +384,7 @@
             <td>${p.nombre || '—'}</td>
             <td>${p.marca || '—'}</td>
             <td>${p.categoria || '—'}</td>
-            <td class="r">${qty(stock, precision)}</td>
+            <td class="r">${formatStockLabel ? formatStockLabel(stock, unit) : qty(stock, precision)}</td>
           </tr>`;
         });
         show(`

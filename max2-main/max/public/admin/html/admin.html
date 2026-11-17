@@ -643,7 +643,7 @@
                     <div class="producto-info">
                         <strong>${producto.marca} - ${producto.nombre}</strong><br>
                         Categoría: ${producto.categoria}<br>
-                        Precio: $${producto.precio} | Stock: ${producto.inventario}
+                        Precio: $${producto.precio} | Stock: ${window.formatStockLabel ? window.formatStockLabel(producto.inventario, producto.unidad_medida) : producto.inventario}
                     </div>
                     <div class="actions">
                         <button class="btn btn-small" onclick="editarProducto('${producto.id}')">Editar</button>
@@ -914,10 +914,9 @@
                 <p>Escanea el código de barras de autorización para continuar.</p>
                 <form id="formCodigoAutorizacionInventario">
                     <label for="codigoAutorizacionInventario">Código de barras</label>
-                    <input id="codigoAutorizacionInventario" class="input" type="text" placeholder="Escanea o escribe el código" autocomplete="off" required>
+                    <input id="codigoAutorizacionInventario" class="input" type="text" placeholder="Apunta el lector aquí" autocomplete="off" inputmode="none" required>
                     <p id="codigoAutorizacionInventarioMsg" role="status" style="min-height:1.2em;color:#b91c1c;"></p>
                     <div style="margin-top:15px;text-align:right;">
-                        <button type="submit" class="btn primary">Validar y continuar</button>
                         <button type="button" class="btn secondary" id="btnCancelarCodigoAutorizacion">Cancelar</button>
                     </div>
                 </form>
@@ -2218,13 +2217,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="admin-iva.js?v=204"></script>
     <script src="tasa-dolar-ui.js?v=201"></script>
-    <script src="cliente.js?v=218"></script>
+    <script src="cliente.js?v=220"></script>
     <script src="etiquetas-precio.js?v=211"></script>
     <script src="admin-funcionalidades.js?v=214"></script>
     <script src="fugas.js?v=311"></script>
     <script src="reportes.js?v=208"></script>
     <script src="reportes-hub.js?v=210"></script>
-    <script src="caja-impresora.js?v=221"></script>
+    <script src="caja-impresora.js?v=222"></script>
     <script src="comercial-admin.js?v=219"></script>
     <script src="copias.js?v=1"></script>
     <script src="admin-user-menu.js?v=208"></script>

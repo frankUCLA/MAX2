@@ -186,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Mostrar el inventario actual como referencia
         const inventarioActual = prod.inventario || 0;
         const editInventarioActual = document.getElementById('editInventarioActual');
-        if (editInventarioActual) editInventarioActual.textContent = `Stock actual: ${inventarioActual}`;
+        if (editInventarioActual) editInventarioActual.textContent = `Stock actual: ${formatStockLabel(inventarioActual, prod.unidad_medida)}`;
         
         await cargarOpcionesEdicionCategoria(prod.id_categoria);
         await cargarOpcionesEdicionProveedor(prod.id_proveedor);
@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="product-edit-size-info">
                         <div>
                             <strong>${talla.nombre}</strong>
-                            ${cantidadActual > 0 ? `<span style="color:#666;font-size:0.9em;"> (Actual: ${cantidadActual})</span>` : '<span style="color:#999;font-size:0.9em;"> (Sin stock)</span>'}
+                            ${cantidadActual > 0 ? `<span style="color:#666;font-size:0.9em;"> (Actual: ${formatStockLabel(cantidadActual, 'UNIDAD')})</span>` : '<span style="color:#999;font-size:0.9em;"> (Sin stock)</span>'}
                         </div>
                         <input 
                             type="number" 
@@ -560,6 +560,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return String(parseFloat(v.toFixed(3)));
     }
 
+    function formatStockLabel(n, unidad) {
+        const v = Number(n);
+        if (!Number.isFinite(v)) return '0';
+        const u = String(unidad || 'UNIDAD').toUpperCase();
+        if (u === 'KILO' || u === 'KG') return `${v.toFixed(3)} kg`;
+        if (u === 'LITRO' || u === 'L') return `${v.toFixed(3)} L`;
+        const qty = formatStockQty(v, u);
+        if (u === 'CAJA') return `${qty} cajas`;
+        if (u === 'PAQUETE') return `${qty} paquetes`;
+        return `${qty} unidades`;
+    }
+    window.formatStockLabel = formatStockLabel;
+
     function margenBadgeHtml(prod) {
         const costo = Number(prod.costo_promedio || 0);
         const precio = Number(prod.precio_venta || 0);
@@ -598,7 +611,7 @@ document.addEventListener('DOMContentLoaded', () => {
             div.dataset.id = prod.id_producto;
             const unidad = prod.unidad_medida || 'UNIDAD';
             const stockTxt = formatStockQty(prod.inventario, unidad);
-            const minTxt = prod.stock_minimo != null ? formatStockQty(prod.stock_minimo, unidad) : null;
+            const minTxt = prod.stock_minimo != null ? formatStockLabel(prod.stock_minimo, unidad) : null;
             const thumb = prod.ruta_imagen
                 ? `<img class="prod-thumb" src="${prod.ruta_imagen}" alt="">`
                 : `<div class="prod-thumb-ph">${(prod.nombre || '?').charAt(0)}</div>`;
@@ -611,7 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div>Categoría: <span id="prod-cat-${prod.id_producto}">${prod.categoria || (prod.id_categoria ? 'Cargando...' : 'Sin categoría')}</span></div>
                         <div class="prod-meta-line">
                             ${precioAdminHtml(prod)}
-                            <span>Stock: ${stockTxt}</span>
+                            <span>Stock: ${formatStockLabel(prod.inventario, unidad)}</span>
                             <span class="unit-badge">${unidad}${empaque}</span>
                             ${minTxt != null ? `<span>Mín: ${minTxt}</span>` : ''}
                             ${prod.codigo_barras

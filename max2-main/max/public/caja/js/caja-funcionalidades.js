@@ -74,6 +74,11 @@ function metaPesoVolumen(unidad) {
   return { unidad: 'KILO', baseLabel: 'kg', fracLabel: 'g', factor: 1000, precioLabel: 'Bs / kilo' };
 }
 
+function roundPesoFraccion(cantidadBase, unidad) {
+  const meta = metaPesoVolumen(unidad);
+  return Math.round(Number(cantidadBase || 0) * meta.factor);
+}
+
 /** Formatea cantidades con hasta seis decimales para conservar el stock fraccionado. */
 function formatStockQty(n, unidad) {
   const v = Number(n);
@@ -87,6 +92,18 @@ function formatStockQty(n, unidad) {
       : String(parseFloat(v.toFixed(3)));
   }
   return String(parseFloat(v.toFixed(3)));
+}
+
+function formatStockLabel(n, unidad) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return '0';
+  const u = String(unidad || 'UNIDAD').toUpperCase();
+  if (u === 'KILO' || u === 'KG') return `${v.toFixed(3)} kg`;
+  if (u === 'LITRO' || u === 'L') return `${v.toFixed(3)} L`;
+  const qty = formatStockQty(v, u);
+  if (u === 'CAJA') return `${qty} cajas`;
+  if (u === 'PAQUETE') return `${qty} paquetes`;
+  return `${qty} unidades`;
 }
 
 function formatPesoVentaLine(it) {
@@ -194,8 +211,7 @@ function normalizeCantidadProducto(prod, cantidadRaw) {
 
 function formatCantidadTicket(it) {
   if (it && isPesoVolumenUnidad(it.unidad_medida)) {
-    const meta = metaPesoVolumen(it.unidad_medida);
-    return String(parseFloat((Number(it.cantidad || 0) * meta.factor).toFixed(3)));
+    return String(roundPesoFraccion(it.cantidad, it.unidad_medida));
   }
   const c = Number(it && it.cantidad);
   if (!Number.isFinite(c) || c <= 0) return '1';
@@ -223,7 +239,7 @@ function applyStockUpdates(updates) {
     if (sel) {
       const opt = sel.querySelector(`option[value="${p.id_producto}"]`);
       if (opt) {
-        opt.textContent = `${p.marca || ''} - ${p.nombre} - $${parseFloat(p.precio_venta || 0).toFixed(2)} | Stock: ${formatStockQty(p.inventario, p.unidad_medida)}`;
+        opt.textContent = `${p.marca || ''} - ${p.nombre} - $${parseFloat(p.precio_venta || 0).toFixed(2)} | Stock: ${formatStockLabel(p.inventario, p.unidad_medida)}`;
       }
     }
   }
@@ -644,7 +660,7 @@ async function loadProductosForCaja() {
       productosCache.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.id_producto;
-        opt.textContent = `${p.marca || ''} - ${p.nombre} - $${parseFloat(p.precio_venta||0).toFixed(2)} | Stock: ${formatStockQty(p.inventario, p.unidad_medida)}`;
+        opt.textContent = `${p.marca || ''} - ${p.nombre} - $${parseFloat(p.precio_venta||0).toFixed(2)} | Stock: ${formatStockLabel(p.inventario, p.unidad_medida)}`;
         sel.appendChild(opt);
       });
       sel.addEventListener('change', onProductoChange);
@@ -2063,7 +2079,15 @@ function initPosValeryUI() {
     toggleDev.addEventListener('click', () => {
       const abierto = wrapDev.style.display !== 'none';
       if (abierto) cerrarDevolucionesPanel();
-      else wrapDev.style.display = 'flex';
+      else {
+        wrapDev.style.display = 'flex';
+        setTimeout(() => {
+          const inputCodigo = document.getElementById('claveDevoluciones');
+          if (inputCodigo && document.getElementById('form-acceso-devoluciones')?.style.display !== 'none') {
+            inputCodigo.focus();
+          }
+        }, 50);
+      }
     });
   }
   if (closeDev) closeDev.addEventListener('click', cerrarDevolucionesPanel);
@@ -2461,7 +2485,7 @@ async function openPosTallaModal(idProducto) {
       posSelectedTalla = null;
     } else {
       opts.innerHTML = tallas.map(t =>
-        `<button type="button" class="pos-talla-btn" data-id="${t.id_talla}">${t.nombre}<br><small>${t.cantidad} uds</small></button>`
+        `<button type="button" class="pos-talla-btn" data-id="${t.id_talla}">${t.nombre}<br><small>${formatStockLabel(t.cantidad, 'UNIDAD')}</small></button>`
       ).join('');
       opts.querySelectorAll('.pos-talla-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -2548,7 +2572,7 @@ async function openPosMayorModal(prod) {
       button.append(document.createTextNode(String(t.nombre || '')));
       button.appendChild(document.createElement('br'));
       const stock = document.createElement('small');
-      stock.textContent = `${formatStockQty(t.cantidad, 'UNIDAD')} uds`;
+      stock.textContent = formatStockLabel(t.cantidad, 'UNIDAD');
       button.appendChild(stock);
       tallaOptions.appendChild(button);
     });
@@ -2725,7 +2749,7 @@ async function openPosPesoModal(prod) {
   }
   if (stockEl) {
     const stock = Number(prod.inventario || 0);
-    const fraction = String(parseFloat((stock * meta.factor).toFixed(3)));
+    const fraction = String(roundPesoFraccion(stock, meta.unidad));
     stockEl.textContent = `${formatStockQty(stock, meta.unidad)} ${meta.baseLabel} (${fraction} ${meta.fracLabel})`;
   }
   if (img) {
@@ -2752,7 +2776,7 @@ function updatePosPesoCalc() {
     return;
   }
   const cantidadBase = Number((bs / posPesoPrecioBsUnit).toFixed(6));
-  const frac = Number((cantidadBase * meta.factor).toFixed(3));
+  const frac = roundPesoFraccion(cantidadBase, meta.unidad);
   if (equiv) {
     equiv.textContent = `${frac} ${meta.fracLabel} (${cantidadBase} ${meta.baseLabel})`;
   }
@@ -2793,7 +2817,7 @@ async function confirmPosPesoAdd() {
   const usdLine = tasa > 0 ? (bs / tasa) : (cantidadBase * posPesoUsdUnit);
   const usdUnit = cantidadBase > 0 ? (usdLine / cantidadBase) : posPesoUsdUnit;
   const bsUnit = cantidadBase > 0 ? (bs / cantidadBase) : posPesoPrecioBsUnit;
-  const gramos = Number((cantidadBase * meta.factor).toFixed(3));
+  const gramos = roundPesoFraccion(cantidadBase, meta.unidad);
 
   const selP = document.getElementById('ventaProducto');
   const selT = document.getElementById('ventaTalla');
@@ -2942,7 +2966,7 @@ function syncPosTicketUI(totalUsd, descUsd, totalBs, descBs) {
     const pesoTxt = formatPesoVentaLine(it);
     const promo = calc.promo ? `<div class="line-promo">${calc.promo.nombre} (-$${descuento.toFixed(2)})</div>` : '';
     const cantShow = isPesoVolumenUnidad(it.unidad_medida)
-      ? (it.fraccion_label || (formatCantidadTicket(it) + ' g'))
+      ? `${formatCantidadTicket(it)} ${metaPesoVolumen(it.unidad_medida).fracLabel}`
       : String(Math.max(1, Math.round(Number(it.cantidad) || 1)));
     const subBits = [];
     if (pesoTxt) subBits.push(pesoTxt);
@@ -2985,7 +3009,10 @@ async function setupPosTerminalGate() {
     if (hint) hint.textContent = 'Escanea el código de barras de autorización para abrir Caja Mayor.';
     if (label) label.textContent = 'Código de barras';
     const accessInput = document.getElementById('posClaveCaja');
-    if (accessInput) accessInput.placeholder = 'Escanea el código de barras';
+    if (accessInput) {
+      accessInput.placeholder = 'Apunta el lector aquí';
+      accessInput.inputMode = 'none';
+    }
     if (serverLabel) serverLabel.textContent = 'Servidor Caja Mayor (solo si esta PC no es el servidor)';
     if (serverTip) serverTip.textContent = `Usa la IP del servidor con el puerto ${expectedPort}. Si ya se conectó antes, deja el campo vacío.`;
     if (serverUrlInput) serverUrlInput.placeholder = `http://192.168.1.124:${expectedPort}`;
@@ -3019,6 +3046,7 @@ async function setupPosTerminalGate() {
 
   const openBtn = document.getElementById('posOpenTerminal');
   if (openBtn) {
+    if (CAJA_MAYOR_MODE) openBtn.style.display = 'none';
     openBtn.addEventListener('click', async () => {
       const clave = (document.getElementById('posClaveCaja') || {}).value || '';
       let serverUrl = (document.getElementById('posServerUrl') || {}).value || '';
@@ -3364,7 +3392,7 @@ function renderVisorResults(query) {
   }
   box.innerHTML = hits.map((p) => {
     const base = Number(p.precio_venta || 0);
-    const stockTxt = formatStockQty(p.inventario, p.unidad_medida);
+    const stockTxt = formatStockLabel(p.inventario, p.unidad_medida);
     return `
     <button type="button" class="pos-visor-row" data-id="${p.id_producto}">
       <span>${(p.marca || '')} ${(p.nombre || '')} · Stock ${stockTxt}</span>
@@ -3397,7 +3425,7 @@ function showVisorProducto(id) {
     metaEl.textContent = [
       ivaCalc.activo ? `Base $${usdBase.toFixed(2)} · IVA $${ivaCalc.iva.toFixed(2)}` : null,
       p.unidad_medida ? `Unidad: ${p.unidad_medida}` : null,
-      p.inventario != null ? `Stock: ${formatStockQty(p.inventario, p.unidad_medida)}` : null,
+      p.inventario != null ? `Stock: ${formatStockLabel(p.inventario, p.unidad_medida)}` : null,
       p.codigo_barras ? `Código: ${p.codigo_barras}` : null
     ].filter(Boolean).join(' · ');
   }

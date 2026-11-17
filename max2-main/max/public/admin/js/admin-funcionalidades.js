@@ -237,7 +237,7 @@ async function cargarTallasProductoCompra() {
                 opt.value = talla.id_talla;
                 // Si el producto tiene esta talla, mostrar stock; si no, indicar que es nueva
                 if (tallasProductoMap.hasOwnProperty(talla.id_talla)) {
-                    opt.textContent = `${talla.nombre} (Stock: ${tallasProductoMap[talla.id_talla]})`;
+                    opt.textContent = `${talla.nombre} (Stock: ${window.formatStockLabel ? window.formatStockLabel(tallasProductoMap[talla.id_talla], 'UNIDAD') : tallasProductoMap[talla.id_talla]})`;
                 } else {
                     opt.textContent = `${talla.nombre} (Nueva - se creará en inventario)`;
                 }

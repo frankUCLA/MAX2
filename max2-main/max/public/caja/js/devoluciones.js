@@ -35,6 +35,15 @@
     return String(parseFloat(x.toFixed(6)));
   }
 
+  function fmtQtyLabel(n, unidad) {
+    const u = String(unidad || 'UNIDAD').toUpperCase();
+    if (u === 'KILO' || u === 'KG') return Number(n || 0).toFixed(3) + ' kg';
+    if (u === 'LITRO' || u === 'L') return Number(n || 0).toFixed(3) + ' L';
+    if (u === 'CAJA') return fmtQty(n) + ' cajas';
+    if (u === 'PAQUETE') return fmtQty(n) + ' paquetes';
+    return fmtQty(n) + ' unidades';
+  }
+
   function fmtFecha(v) {
     const d = new Date(v);
     if (Number.isNaN(d.getTime())) return String(v || '');
@@ -186,6 +195,7 @@
           ? detalles.map((det) => {
               const disponible = Number(det.disponible || 0);
               const precio = Number(det.precio_neto || det.precio_unitario || 0);
+              const unidad = det.unidad_medida || 'UNIDAD';
               const talla = det.nombre_talla && det.nombre_talla !== '-' ? ` · Talla ${escapeHtml(det.nombre_talla)}` : '';
               const can = disponible > 0 && tiempoOk;
               const step = Math.abs(disponible - Math.round(disponible)) > 1e-9 ? '0.000001' : '1';
@@ -194,7 +204,7 @@
               return `<div class="dev-line ${can ? '' : 'is-off'}">
                 <div>
                   <div class="dev-line-name">${escapeHtml(det.nombre_producto || 'Producto')}</div>
-                  <div class="dev-line-meta">Vendidas ${fmtQty(det.cantidad)}${talla} · Disponibles ${fmtQty(disponible)} · ${fmtMoney(precio)} c/u</div>
+                  <div class="dev-line-meta">Vendidas ${fmtQtyLabel(det.cantidad, unidad)}${talla} · Disponibles ${fmtQtyLabel(disponible, unidad)} · ${fmtMoney(precio)} c/u</div>
                 </div>
                 <div class="dev-line-actions">
                   <div class="dev-refund-box">

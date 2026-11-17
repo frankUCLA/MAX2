@@ -187,7 +187,7 @@
       const isLitro = u === 'LITRO' || u === 'L';
       const qty = Math.max(0, Number(it.cantidad) || 0);
       if (qty < 1) {
-        const fraction = String(parseFloat((qty * 1000).toFixed(3)));
+        const fraction = String(Math.round(qty * 1000));
         return fraction + (isLitro ? 'ml' : 'g');
       }
       const whole = Math.round(qty);

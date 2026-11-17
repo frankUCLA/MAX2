@@ -8,6 +8,20 @@
     return '$' + Number(n || 0).toFixed(2);
   }
 
+  function fmtStock(n, unidad) {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return '0';
+    const u = String(unidad || 'UNIDAD').toUpperCase();
+    if (u === 'KILO' || u === 'KG') return `${v.toFixed(3)} kg`;
+    if (u === 'LITRO' || u === 'L') return `${v.toFixed(3)} L`;
+    const qty = Math.abs(v - Math.round(v)) < 1e-9
+      ? String(Math.round(v))
+      : String(parseFloat(v.toFixed(3)));
+    if (u === 'CAJA') return `${qty} cajas`;
+    if (u === 'PAQUETE') return `${qty} paquetes`;
+    return `${qty} unidades`;
+  }
+
   function renderCurva7d(curva) {
     const wrapId = 'curvaVentas7dWrap';
     const canvasId = 'curvaVentas7dChart';
@@ -138,7 +152,7 @@
       const crit = Number(p.inventario) <= 0;
       return `<div class="item" style="border-left:3px solid ${crit ? '#dc2626' : '#f59e0b'};">
         <span><b>${p.nombre || 'Producto'}</b>${p.marca ? ' · ' + p.marca : ''}<br>
-        <small style="color:#64748b;">Stock: ${p.inventario} / mín ${p.stock_minimo != null ? p.stock_minimo : '—'}</small></span>
+        <small style="color:#64748b;">Stock: ${fmtStock(p.inventario, p.unidad_medida)} / mín ${p.stock_minimo != null ? fmtStock(p.stock_minimo, p.unidad_medida) : '—'}</small></span>
       </div>`;
     }).join('');
     if (list.length > 15) {
@@ -853,7 +867,7 @@ ${formato === 'detallado' && pagosDetallados ? `<div class="section"><strong>Ven
       list.push({
         type: Number(p.inventario) <= 0 ? 'danger' : 'warn',
         title: 'Stock bajo',
-        body: `${p.nombre}${p.marca ? ' (' + p.marca + ')' : ''}: ${p.inventario} / mín ${p.stock_minimo}`,
+        body: `${p.nombre}${p.marca ? ' (' + p.marca + ')' : ''}: ${fmtStock(p.inventario, p.unidad_medida)} / mín ${p.stock_minimo != null ? fmtStock(p.stock_minimo, p.unidad_medida) : '—'}`,
         action: 'inventario'
       });
     });
