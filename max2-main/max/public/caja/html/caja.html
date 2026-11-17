@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="/imagen/images.png"/>
   <title>MAX POS — Caja</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="caja.css?v=212">
+  <link rel="stylesheet" href="caja.css?v=213">
   <script src="/setup-edition.js"></script>
   <script src="max-theme.js"></script>
   <script src="max-ui-dialogs.js?v=210"></script>
@@ -388,16 +388,20 @@
           <div class="dev-hero-chips">
             <span>Plazo 48 horas</span>
             <span>Stock al instante</span>
-            <span>Acceso con código de barras</span>
+            <span>Código de barras de autorización</span>
           </div>
         </div>
         <button type="button" id="btnCerrarDevoluciones" class="dev-close" title="Cerrar" aria-label="Cerrar">×</button>
       </div>
-      <div id="form-acceso-devoluciones" class="dev-lock">
+      <form id="form-acceso-devoluciones" class="dev-lock">
         <div class="dev-lock-badge">Acceso protegido</div>
-        <p>Escanea el código de barras de autorización para abrir Devoluciones.</p>
+        <label for="claveDevoluciones">Código de barras de autorización</label>
+        <div class="dev-lock-row">
+          <input type="password" id="claveDevoluciones" class="dev-input" placeholder="Escanea o escribe el código" required autocomplete="off">
+          <button type="submit" class="dev-btn dev-btn-primary">Entrar</button>
+        </div>
         <p id="devolucionLockMsg" class="dev-msg" aria-live="polite"></p>
-      </div>
+      </form>
       <div id="panelDevoluciones" class="dev-body" style="display:none;">
         <div class="dev-search">
           <label for="devolucionNumeroVenta">Número de ticket</label>

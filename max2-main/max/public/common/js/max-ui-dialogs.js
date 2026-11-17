@@ -81,35 +81,7 @@
     return modal;
   }
 
-  function ensurePromptModal() {
-    let modal = document.getElementById('maxUiPromptModal');
-    if (modal) return modal;
-    modal = document.createElement('div');
-    modal.id = 'maxUiPromptModal';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    modal.style.cssText = [
-      'display:none', 'position:fixed', 'inset:0', 'z-index:2147482990',
-      'background:rgba(15,23,42,.55)', 'align-items:center', 'justify-content:center',
-      'padding:20px', 'backdrop-filter:blur(3px)'
-    ].join(';');
-    modal.innerHTML = [
-      '<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:22px 22px 16px;',
-      'box-shadow:0 20px 50px rgba(15,23,42,.28);font:500 14px/1.45 \'DM Sans\',system-ui,sans-serif;">',
-      '<h3 id="maxUiPromptTitle" style="margin:0 0 10px;font-size:1.15rem;color:#0f172a;">Autorización</h3>',
-      '<p id="maxUiPromptMsg" style="margin:0 0 14px;color:#334155;white-space:pre-wrap;"></p>',
-      '<input id="maxUiPromptInput" class="input" type="text" autocomplete="off" style="width:100%;margin-bottom:18px;">',
-      '<div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">',
-      '<button type="button" id="maxUiPromptCancel" class="btn secondary" style="min-width:96px;">Cancelar</button>',
-      '<button type="button" id="maxUiPromptOk" class="btn primary" style="min-width:96px;">Aceptar</button>',
-      '</div></div>'
-    ].join('');
-    (document.body || document.documentElement).appendChild(modal);
-    return modal;
-  }
-
   let confirmBusy = null;
-  let promptBusy = null;
 
   function maxConfirm(message, options) {
     const opts = options || {};
@@ -160,59 +132,6 @@
     });
   }
 
-  function maxPrompt(message, options) {
-    const opts = options || {};
-    return new Promise(function (resolve) {
-      const modal = ensurePromptModal();
-      const msgEl = document.getElementById('maxUiPromptMsg');
-      const titleEl = document.getElementById('maxUiPromptTitle');
-      const input = document.getElementById('maxUiPromptInput');
-      const okBtn = document.getElementById('maxUiPromptOk');
-      const cancelBtn = document.getElementById('maxUiPromptCancel');
-      if (titleEl) titleEl.textContent = opts.title || 'Autorización';
-      if (msgEl) msgEl.textContent = String(message == null ? '' : message);
-      if (input) {
-        input.value = '';
-        input.placeholder = opts.placeholder || '';
-      }
-      if (okBtn) okBtn.textContent = opts.okText || 'Aceptar';
-      if (cancelBtn) cancelBtn.textContent = opts.cancelText || 'Cancelar';
-
-      function finish(value) {
-        modal.style.display = 'none';
-        modal.onclick = null;
-        if (okBtn) okBtn.onclick = null;
-        if (cancelBtn) cancelBtn.onclick = null;
-        document.removeEventListener('keydown', onKey);
-        promptBusy = null;
-        recoverKeyboardFocus();
-        resolve(value);
-      }
-
-      function onKey(e) {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          finish(null);
-        } else if (e.key === 'Enter') {
-          e.preventDefault();
-          finish(input ? input.value.trim() : '');
-        }
-      }
-
-      if (promptBusy) {
-        try { promptBusy(null); } catch (_) {}
-      }
-      promptBusy = finish;
-
-      modal.style.display = 'flex';
-      if (okBtn) okBtn.onclick = function () { finish(input ? input.value.trim() : ''); };
-      if (cancelBtn) cancelBtn.onclick = function () { finish(null); };
-      modal.onclick = function (e) { if (e.target === modal) finish(null); };
-      document.addEventListener('keydown', onKey);
-      setTimeout(function () { try { input && input.focus(); } catch (_) {} }, 30);
-    });
-  }
-
   // alert nativo → toast (sin bloquear teclado en Electron)
   function maxAlert(message) {
     const text = String(message == null ? '' : message);
@@ -227,7 +146,6 @@
   global.maxToast = maxToast;
   global.showAdminToast = maxToast;
   global.maxConfirm = maxConfirm;
-  global.maxPrompt = maxPrompt;
   global.maxAlert = maxAlert;
 
   // Parche global: cualquier alert() existente deja de congelar la UI

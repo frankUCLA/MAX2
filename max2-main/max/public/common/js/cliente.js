@@ -185,11 +185,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Mostrar el inventario actual como referencia
         const inventarioActual = prod.inventario || 0;
-        const editInventarioLabel = document.querySelector('label[for="editInventario"]') || 
-                                     document.querySelector('label:has(input#editInventario)');
-        if (editInventarioLabel) {
-            editInventarioLabel.innerHTML = `Cantidad adicional (sumar al total): <span style="color:#666;font-size:0.9em;">(Stock actual: ${inventarioActual})</span><input type="number" id="editInventario" class="input" min="0" value="" placeholder="0">`;
-        }
+        const editInventarioActual = document.getElementById('editInventarioActual');
+        if (editInventarioActual) editInventarioActual.textContent = `Stock actual: ${inventarioActual}`;
         
         await cargarOpcionesEdicionCategoria(prod.id_categoria);
         await cargarOpcionesEdicionProveedor(prod.id_proveedor);
@@ -219,13 +216,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cantidadActual = tallaProducto ? Number(tallaProducto.cantidad) : 0;
                 
                 const label = document.createElement('label');
-                label.style.display = 'block';
-                label.style.marginBottom = '10px';
-                label.style.padding = '8px';
-                label.style.background = cantidadActual > 0 ? '#e8f5e9' : '#f5f5f5';
-                label.style.borderRadius = '4px';
+                label.className = 'product-edit-size-row';
                 label.innerHTML = `
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div class="product-edit-size-info">
                         <div>
                             <strong>${talla.nombre}</strong>
                             ${cantidadActual > 0 ? `<span style="color:#666;font-size:0.9em;"> (Actual: ${cantidadActual})</span>` : '<span style="color:#999;font-size:0.9em;"> (Sin stock)</span>'}
@@ -235,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             min="0" 
                             value="0" 
                             placeholder="0" 
-                            style="width:80px;padding:6px;" 
+                            class="product-edit-size-input"
                             name="edit_cantidad_talla_${talla.id_talla}" 
                             data-id-talla="${talla.id_talla}"
                             title="Cantidad a AGREGAR (se sumará a ${cantidadActual})">
@@ -359,50 +352,74 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
     }
-    async function validarCodigoBarrasEdicionInventario() {
-        if (typeof window.maxPrompt !== 'function') {
-            const mensaje = 'No está disponible el diálogo de autorización. Recarga la página.';
-            if (typeof showAdminToast === 'function') showAdminToast(mensaje, 'error');
-            else alert(mensaje);
-            return false;
+    async function solicitarCodigoAutorizacionInventario() {
+        const modal = document.getElementById('modalCodigoAutorizacionInventario');
+        const form = document.getElementById('formCodigoAutorizacionInventario');
+        const input = document.getElementById('codigoAutorizacionInventario');
+        const mensaje = document.getElementById('codigoAutorizacionInventarioMsg');
+        const cancelar = document.getElementById('btnCancelarCodigoAutorizacion');
+        if (!modal || !form || !input || !mensaje || !cancelar) {
+            console.error('No se encontró el formulario de autorización de inventario.');
+            return null;
         }
-        const codigo = await window.maxPrompt('Escanea el código de barras de autorización para editar productos.', {
-            title: 'Autorizar edición de inventario',
-            placeholder: 'Código de barras',
-            okText: 'Validar'
+
+        return new Promise((resolve) => {
+            let terminado = false;
+            let validando = false;
+            const cerrar = (codigo) => {
+                if (terminado) return;
+                terminado = true;
+                modal.style.display = 'none';
+                form.onsubmit = null;
+                cancelar.onclick = null;
+                input.value = '';
+                resolve(codigo);
+            };
+
+            mensaje.textContent = '';
+            modal.style.display = 'flex';
+            form.onsubmit = async (event) => {
+                event.preventDefault();
+                if (validando) return;
+                const codigo = input.value.trim();
+                if (!codigo) {
+                    mensaje.textContent = 'Escanea el código de barras de autorización.';
+                    input.focus();
+                    return;
+                }
+
+                validando = true;
+                const boton = form.querySelector('button[type="submit"]');
+                if (boton) boton.disabled = true;
+                mensaje.textContent = 'Validando código…';
+                try {
+                    const res = await fetch('/api/admin/productos/validar-codigo-barras', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ codigo_barras: codigo })
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || !data.ok) {
+                        mensaje.textContent = data.error || 'No se pudo validar el código de barras.';
+                        return;
+                    }
+                    cerrar(codigo);
+                } catch (error) {
+                    console.error('Error validando código para editar producto:', error);
+                    mensaje.textContent = 'No se pudo validar el código. Revisa la conexión e intenta de nuevo.';
+                } finally {
+                    validando = false;
+                    if (boton) boton.disabled = false;
+                }
+            };
+            cancelar.onclick = () => cerrar(null);
+            setTimeout(() => input.focus(), 30);
         });
-        if (codigo === null) return false;
-        if (!codigo.trim()) {
-            const mensaje = 'Escanea el código de barras de autorización.';
-            if (typeof showAdminToast === 'function') showAdminToast(mensaje, 'warn');
-            else alert(mensaje);
-            return false;
-        }
-        try {
-            const res = await fetch('/api/admin/productos/validar-codigo-barras', {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ codigo_barras: codigo.trim() })
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || !data.ok) {
-                const mensaje = data.error || 'No se pudo validar el código de barras.';
-                if (typeof showAdminToast === 'function') showAdminToast(mensaje, 'error');
-                else alert(mensaje);
-                return false;
-            }
-            return true;
-        } catch (error) {
-            console.error('Error validando código para editar producto:', error);
-            const mensaje = 'No se pudo validar el código de barras. Revisa la conexión.';
-            if (typeof showAdminToast === 'function') showAdminToast(mensaje, 'error');
-            else alert(mensaje);
-            return false;
-        }
     }
     window.editarProducto = async function(id) {
-        if (!(await validarCodigoBarrasEdicionInventario())) return;
+        const codigoAutorizacion = await solicitarCodigoAutorizacionInventario();
+        if (!codigoAutorizacion) return;
         try {
             const res = await fetch(`/api/admin/productos/${id}`);
             const data = await res.json();

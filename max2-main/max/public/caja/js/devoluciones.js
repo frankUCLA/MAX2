@@ -43,9 +43,24 @@
 
   function bindUi() {
     const panelDevoluciones = document.getElementById('panelDevoluciones');
+    const formAcceso = document.getElementById('form-acceso-devoluciones');
+    const inputCodigo = document.getElementById('claveDevoluciones');
     const btnBuscarVenta = document.getElementById('btnBuscarVentaDevolucion');
     const inputVenta = document.getElementById('devolucionNumeroVenta');
     const resultados = document.getElementById('ventasClienteDevolucion');
+
+    if (formAcceso && inputCodigo && !formAcceso._devBound) {
+      formAcceso._devBound = true;
+      formAcceso.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const resultado = await handleDevolucionesBarcode(inputCodigo.value);
+        if (resultado === false) {
+          setMsg('devolucionLockMsg', 'Código de barras no válido.', 'err');
+        } else if (resultado === true) {
+          inputCodigo.value = '';
+        }
+      });
+    }
 
     if (btnBuscarVenta && !btnBuscarVenta._devBound) {
       btnBuscarVenta._devBound = true;
@@ -108,7 +123,10 @@
         setMsg('devolucionLockMsg', data.error || 'No se pudo validar el código de barras.', 'err');
         return 'error';
       }
-      if (!data.ok) return false;
+      if (!data.ok) {
+        setMsg('devolucionLockMsg', data.error || 'Código de barras no válido.', 'err');
+        return false;
+      }
       if (wrap) wrap.style.display = 'flex';
       if (acceso) acceso.style.display = 'none';
       if (panel) panel.style.display = 'block';
