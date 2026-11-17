@@ -27,6 +27,7 @@
     "multer": "^2.2.0",
     "mysql2": "^3.9.7",
     "node-fetch": "^2.7.0",
+    "nodemailer": "^10.6.0",
     "qrcode": "^1.5.3"
   },
   "devDependencies": {

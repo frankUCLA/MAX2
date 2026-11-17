@@ -1239,6 +1239,172 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function renderInitialAdminPasswordForm() {
+        if (!loginSection) return;
+        loginSection.style.display = 'block';
+        loginSection.innerHTML = `
+            <h2>Verifica tu correo</h2>
+            <p class="login-sub">Antes de crear la contraseña inicial, enviaremos un código de seguridad a <strong>maxbyte.solutions01@gmail.com</strong>.</p>
+            <div id="initialAdminPasswordMsg" class="msg" role="status"></div>
+            <form id="sendAdminSetupCodeForm" autocomplete="off">
+              <button type="submit" id="sendAdminSetupCode" class="btn primary">Enviar código de verificación</button>
+            </form>
+            <form id="verifyAdminSetupCodeForm" autocomplete="off" style="display:none;margin-top:16px;">
+              <div class="field">
+                <label for="adminSetupCode">Código de 6 dígitos</label>
+                <input type="text" id="adminSetupCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+              </div>
+              <button type="submit" id="verifyAdminSetupCode" class="btn primary">Verificar código</button>
+            </form>
+            <form id="initialAdminPasswordForm" autocomplete="off" style="display:none;margin-top:16px;">
+              <div class="field">
+                <label for="initialAdminPassword">Nueva contraseña</label>
+                <input type="password" id="initialAdminPassword" autocomplete="new-password" minlength="8" required>
+              </div>
+              <div class="field">
+                <label for="confirmAdminPassword">Confirmar contraseña</label>
+                <input type="password" id="confirmAdminPassword" autocomplete="new-password" minlength="8" required>
+              </div>
+              <button type="submit" id="saveInitialAdminPassword" class="btn primary">Guardar contraseña</button>
+            </form>
+        `;
+
+        const sendForm = document.getElementById('sendAdminSetupCodeForm');
+        const sendButton = document.getElementById('sendAdminSetupCode');
+        const verifyForm = document.getElementById('verifyAdminSetupCodeForm');
+        const codeInput = document.getElementById('adminSetupCode');
+        const verifyButton = document.getElementById('verifyAdminSetupCode');
+        const passwordForm = document.getElementById('initialAdminPasswordForm');
+        const form = passwordForm;
+        const passwordInput = document.getElementById('initialAdminPassword');
+        const confirmInput = document.getElementById('confirmAdminPassword');
+        const saveButton = document.getElementById('saveInitialAdminPassword');
+        const message = document.getElementById('initialAdminPasswordMsg');
+        if (!sendForm || !sendButton || !verifyForm || !codeInput || !verifyButton
+            || !passwordForm || !passwordInput || !confirmInput || !saveButton || !message) return;
+
+        const setMessage = (text, color) => {
+            message.textContent = text;
+            message.style.color = color || '#3b82f6';
+        };
+        let resendTimer = null;
+        const startResendCountdown = (seconds) => {
+            if (resendTimer) clearInterval(resendTimer);
+            const until = Date.now() + seconds * 1000;
+            const update = () => {
+                const remaining = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+                sendButton.disabled = remaining > 0;
+                sendButton.textContent = remaining > 0
+                    ? `Reenviar código (${remaining}s)`
+                    : 'Reenviar código';
+                if (!remaining && resendTimer) {
+                    clearInterval(resendTimer);
+                    resendTimer = null;
+                }
+            };
+            update();
+            if (seconds > 0) resendTimer = setInterval(update, 1000);
+        };
+
+        sendForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            sendButton.disabled = true;
+            setMessage('Enviando código de seguridad…');
+            try {
+                const res = await fetch('/api/primer-inicio/enviar-codigo', {
+                    method: 'POST',
+                    credentials: 'include',
+                    cache: 'no-store'
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.ok) {
+                    setMessage(data.error || 'No se pudo enviar el código.', '#ef4444');
+                    if (Number(data.retry_after_seconds) > 0) {
+                        startResendCountdown(Number(data.retry_after_seconds));
+                    } else {
+                        sendButton.disabled = false;
+                    }
+                    return;
+                }
+                setMessage('Código enviado. Revisa maxbyte.solutions01@gmail.com; puede tardar unos minutos.');
+                verifyForm.style.display = '';
+                codeInput.focus();
+                startResendCountdown(Number(data.retry_after_seconds) || 60);
+            } catch (error) {
+                console.error('Error solicitando el código de configuración inicial:', error);
+                setMessage('No se pudo conectar con el servidor. Intenta de nuevo.', '#ef4444');
+                sendButton.disabled = false;
+            }
+        });
+
+        verifyForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            verifyButton.disabled = true;
+            setMessage('Verificando código…');
+            try {
+                const res = await fetch('/api/primer-inicio/verificar-codigo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    cache: 'no-store',
+                    body: JSON.stringify({ codigo: codeInput.value.trim() })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.ok) {
+                    setMessage(data.error || 'El código no es válido.', '#ef4444');
+                    return;
+                }
+                verifyForm.style.display = 'none';
+                passwordForm.style.display = '';
+                setMessage('Correo verificado. Ahora crea la contraseña del administrador.', '#10b981');
+                passwordInput.focus();
+            } catch (error) {
+                console.error('Error verificando el código de configuración inicial:', error);
+                setMessage('No se pudo conectar con el servidor. Intenta de nuevo.', '#ef4444');
+            } finally {
+                verifyButton.disabled = false;
+            }
+        });
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const password = passwordInput.value;
+            if (password.length < 8 || password !== password.trim()) {
+                setMessage('Usa al menos 8 caracteres y no incluyas espacios al inicio o al final.', '#ef4444');
+                return;
+            }
+            if (password !== confirmInput.value) {
+                setMessage('Las contraseñas no coinciden.', '#ef4444');
+                confirmInput.focus();
+                return;
+            }
+
+            saveButton.disabled = true;
+            setMessage('Guardando contraseña…');
+            try {
+                const res = await fetch('/api/primer-inicio/clave-administrador', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    cache: 'no-store',
+                    body: JSON.stringify({ password })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.ok) {
+                    setMessage(data.error || 'No se pudo guardar la contraseña.', '#ef4444');
+                    return;
+                }
+                if (resendTimer) clearInterval(resendTimer);
+                restoreLoginForm('Contraseña configurada. Inicia sesión con la cuenta administradora.', '#10b981');
+            } catch (error) {
+                console.error('Error configurando la contraseña inicial:', error);
+                setMessage('No se pudo conectar con el servidor. Intenta de nuevo.', '#ef4444');
+            } finally {
+                saveButton.disabled = false;
+            }
+        });
+    }
+
     function goToPanelForRol(rolRaw) {
         const rol = normalizeRol(rolRaw);
         if (rol === 'administrador' || rol === 'admin') {
@@ -1306,6 +1472,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const bdStatus = data.bd ? 'BD: ✅ OK' : 'BD: ❌ FAIL';
             statusDisplay.textContent = `${servidorStatus} | ${bdStatus}`;
             statusDisplay.style.color = (data.servidor && data.bd) ? '#10b981' : '#ef4444'; 
+
+            if (data.admin_password_setup_required && data.servidor && data.bd) {
+                renderInitialAdminPasswordForm();
+                return;
+            }
             
             if (data.servidor && data.bd && data.usuario) {
                 const rol = normalizeRol(data.rol);

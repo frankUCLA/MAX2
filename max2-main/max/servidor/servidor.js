@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { resolveApp, resolveData, ensureDir, isPkg } = require('./paths');
 const serveLegacyPublicFiles = require('./public-files');
 
@@ -10,6 +11,7 @@ try {
 } catch (_) {}
 
 const express = require('express');
+const nodemailer = require('nodemailer');
 let bcrypt;
 if (isPkg) {
   // En el .exe usamos solo bcryptjs (sin binarios nativos)
@@ -75,6 +77,21 @@ const setupEdition = loadSetupEdition();
 // 1. INICIALIZAR APP DE EXPRESS
 const app = express();
 const SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
+const ADMIN_PASSWORD_SETUP_MARKER = '.admin-password-setup-required';
+let adminPasswordSetupInProgress = false;
+let adminSetupEmailSending = false;
+const ADMIN_SETUP_EMAIL = 'maxbyte.solutions01@gmail.com';
+const ADMIN_SETUP_CODE_TTL_MS = 10 * 60 * 1000;
+const ADMIN_SETUP_CODE_RESEND_MS = 60 * 1000;
+const ADMIN_SETUP_CODE_MAX_ATTEMPTS = 5;
+const ADMIN_SETUP_VERIFIED_TTL_MS = 5 * 60 * 1000;
+const adminPasswordVerification = {
+  codeHash: '',
+  expiresAt: 0,
+  attemptsRemaining: 0,
+  verifiedUntil: 0,
+  lastSentAt: 0
+};
 const serverPortState = {
   primaryPort: Number(process.env.PORT || 3000),
   cajaMayorPort: null,
@@ -84,6 +101,19 @@ const serverPortState = {
 function isCajaMayorRequest(req) {
   return Number(serverPortState.cajaMayorPort) > 0
     && Number(req.socket && req.socket.localPort) === serverPortState.cajaMayorPort;
+}
+
+function isAdminPasswordSetupRequired() {
+  return fs.existsSync(resolveData(ADMIN_PASSWORD_SETUP_MARKER));
+}
+
+function isLocalAdminSetupRequest(req) {
+  const remoteAddress = String(req.socket && req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+  return remoteAddress === '127.0.0.1' || remoteAddress === '::1';
+}
+
+function hashAdminSetupCode(code) {
+  return crypto.createHash('sha256').update(code).digest();
 }
 
 app.get('/setup-edition.js', (_req, res) => {
@@ -1250,6 +1280,7 @@ function getLanIps() {
 
 app.get('/api/status', async (req, res) => {
   const bdOK = await verificarConexiónBD();
+  const adminPasswordSetupRequired = isAdminPasswordSetupRequired();
   const user = req.session.user || null;
   const port = serverPortState.primaryPort;
   const cajaMayorPort = serverPortState.cajaMayorPort;
@@ -1268,6 +1299,7 @@ app.get('/api/status', async (req, res) => {
       return res.json({
         servidor: true,
         bd: bdOK,
+        admin_password_setup_required: adminPasswordSetupRequired,
         usuario: null,
         rol: 'Invitado',
         mobile_blocked: true,
@@ -1288,6 +1320,7 @@ app.get('/api/status', async (req, res) => {
   res.json({
     servidor: true,
     bd: bdOK,
+    admin_password_setup_required: adminPasswordSetupRequired,
     usuario: user ? user.usuario : null,
     rol: rol,
     mobile_readonly: !!(req.session && req.session.mobile_readonly),
@@ -1304,8 +1337,218 @@ app.get('/api/status', async (req, res) => {
   });
 });
 
+app.post('/api/primer-inicio/enviar-codigo', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (!isLocalAdminSetupRequest(req)) {
+    return res.status(403).json({ ok: false, error: 'La verificación solo se puede solicitar desde este equipo.' });
+  }
+  if (!isAdminPasswordSetupRequired()) {
+    return res.status(409).json({ ok: false, error: 'La contraseña inicial ya fue configurada.' });
+  }
+  if (adminSetupEmailSending) {
+    return res.status(409).json({ ok: false, error: 'Ya se está enviando un código. Espera un momento.' });
+  }
+
+  const smtpHost = String(process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+  const smtpPort = Number(process.env.SMTP_PORT || 465);
+  const smtpUser = String(process.env.SMTP_USER || ADMIN_SETUP_EMAIL).trim();
+  const smtpPassword = String(process.env.SMTP_PASSWORD || '');
+  const smtpSecure = String(process.env.SMTP_SECURE || 'true').toLowerCase() !== 'false';
+  if (!smtpHost || !Number.isInteger(smtpPort) || smtpPort <= 0 || !smtpUser || !smtpPassword) {
+    return res.status(503).json({
+      ok: false,
+      error: 'Falta configurar el correo saliente. Agrega SMTP_PASSWORD en el archivo .env usando una contraseña de aplicación de Gmail y reinicia MAX.'
+    });
+  }
+
+  const now = Date.now();
+  const retryAfter = Math.ceil((adminPasswordVerification.lastSentAt + ADMIN_SETUP_CODE_RESEND_MS - now) / 1000);
+  if (adminPasswordVerification.lastSentAt && retryAfter > 0) {
+    return res.status(429).json({
+      ok: false,
+      retry_after_seconds: retryAfter,
+      error: `Espera ${retryAfter} segundos antes de solicitar otro código.`
+    });
+  }
+
+  if (adminPasswordVerification.verifiedUntil > now) {
+    return res.status(409).json({ ok: false, error: 'El correo ya está verificado. Continúa con la contraseña.' });
+  }
+
+  adminSetupEmailSending = true;
+  adminPasswordVerification.lastSentAt = now;
+  let transporter;
+  try {
+    const code = String(crypto.randomInt(100000, 1000000));
+    const expiresAt = now + ADMIN_SETUP_CODE_TTL_MS;
+    transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      auth: { user: smtpUser, pass: smtpPassword },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000
+    });
+    await transporter.sendMail({
+      from: { name: 'MAX ERP', address: smtpUser },
+      to: ADMIN_SETUP_EMAIL,
+      subject: 'Tu código de verificación para configurar MAX',
+      text: [
+        'Hola,',
+        '',
+        'Se solicitó configurar la contraseña inicial del administrador de MAX.',
+        `Tu código de verificación es: ${code}`,
+        '',
+        'El código vence en 10 minutos y solo se puede usar una vez.',
+        'Si no solicitaste esta configuración, ignora este mensaje.',
+        '',
+        'MAX ERP'
+      ].join('\n'),
+      html: `<!doctype html>
+        <html lang="es">
+          <body style="margin:0;padding:32px 12px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 12px 36px rgba(15,23,42,.12);">
+              <tr><td style="padding:30px 34px;background:linear-gradient(135deg,#0f766e,#2563eb);color:#fff;">
+                <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.85;">MAX ERP</div>
+                <h1 style="margin:12px 0 0;font-size:26px;line-height:1.2;">Verificación de seguridad</h1>
+              </td></tr>
+              <tr><td style="padding:32px 34px;">
+                <p style="margin:0 0 12px;font-size:16px;line-height:1.6;">Hola,</p>
+                <p style="margin:0 0 22px;font-size:15px;line-height:1.7;color:#475569;">Se solicitó configurar la contraseña inicial de la cuenta administradora. Ingresa este código en MAX para continuar:</p>
+                <div style="padding:22px 16px;text-align:center;background:#f0fdfa;border:1px solid #99f6e4;border-radius:14px;">
+                  <div style="font-size:12px;font-weight:700;letter-spacing:1.5px;color:#0f766e;text-transform:uppercase;">Tu código de verificación</div>
+                  <div style="margin-top:10px;font-size:38px;font-weight:800;letter-spacing:10px;color:#0f172a;">${code}</div>
+                </div>
+                <p style="margin:22px 0 0;font-size:14px;line-height:1.7;color:#475569;"><strong>Este código vence en 10 minutos</strong> y solo se puede usar una vez. No lo compartas con nadie.</p>
+                <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Si no solicitaste esta configuración, puedes ignorar este mensaje; tu cuenta seguirá protegida.</p>
+              </td></tr>
+              <tr><td style="padding:18px 34px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;">Mensaje automático de MAX ERP. Por favor, no respondas a este correo.</td></tr>
+            </table>
+          </body>
+        </html>`
+    });
+
+    adminPasswordVerification.codeHash = hashAdminSetupCode(code).toString('hex');
+    adminPasswordVerification.expiresAt = expiresAt;
+    adminPasswordVerification.attemptsRemaining = ADMIN_SETUP_CODE_MAX_ATTEMPTS;
+    adminPasswordVerification.verifiedUntil = 0;
+    return res.json({
+      ok: true,
+      retry_after_seconds: Math.ceil(ADMIN_SETUP_CODE_RESEND_MS / 1000),
+      expires_in_seconds: Math.ceil(ADMIN_SETUP_CODE_TTL_MS / 1000)
+    });
+  } catch (error) {
+    console.error('[PRIMER INICIO] No se pudo enviar el código de verificación:', error.message || error);
+    return res.status(502).json({
+      ok: false,
+      retry_after_seconds: Math.ceil(ADMIN_SETUP_CODE_RESEND_MS / 1000),
+      error: 'No se pudo enviar el correo. Verifica SMTP_HOST, SMTP_USER y SMTP_PASSWORD en .env; para Gmail usa una contraseña de aplicación.'
+    });
+  } finally {
+    if (transporter) transporter.close();
+    adminSetupEmailSending = false;
+  }
+});
+
+app.post('/api/primer-inicio/verificar-codigo', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (!isLocalAdminSetupRequest(req)) {
+    return res.status(403).json({ ok: false, error: 'La verificación solo se puede completar desde este equipo.' });
+  }
+  if (!isAdminPasswordSetupRequired()) {
+    return res.status(409).json({ ok: false, error: 'La contraseña inicial ya fue configurada.' });
+  }
+
+  const code = String(req.body && req.body.codigo || '').trim();
+  if (!/^\d{6}$/.test(code)) {
+    return res.status(400).json({ ok: false, error: 'Escribe el código de 6 dígitos recibido por correo.' });
+  }
+  const now = Date.now();
+  if (!adminPasswordVerification.attemptsRemaining
+      && adminPasswordVerification.expiresAt > now
+      && adminPasswordVerification.verifiedUntil <= now) {
+    return res.status(429).json({ ok: false, error: 'Se agotaron los intentos. Solicita un nuevo código.' });
+  }
+  if (!adminPasswordVerification.codeHash || now >= adminPasswordVerification.expiresAt) {
+    adminPasswordVerification.codeHash = '';
+    adminPasswordVerification.attemptsRemaining = 0;
+    return res.status(410).json({ ok: false, error: 'El código venció. Solicita uno nuevo.' });
+  }
+  if (adminPasswordVerification.attemptsRemaining <= 0) {
+    return res.status(429).json({ ok: false, error: 'Se agotaron los intentos. Solicita un nuevo código.' });
+  }
+
+  const expectedHash = Buffer.from(adminPasswordVerification.codeHash, 'hex');
+  const providedHash = hashAdminSetupCode(code);
+  if (!crypto.timingSafeEqual(expectedHash, providedHash)) {
+    adminPasswordVerification.attemptsRemaining -= 1;
+    if (!adminPasswordVerification.attemptsRemaining) adminPasswordVerification.codeHash = '';
+    return res.status(400).json({
+      ok: false,
+      error: adminPasswordVerification.attemptsRemaining
+        ? `Código incorrecto. Te quedan ${adminPasswordVerification.attemptsRemaining} intentos.`
+        : 'Código incorrecto. Solicita uno nuevo.'
+    });
+  }
+
+  adminPasswordVerification.codeHash = '';
+  adminPasswordVerification.attemptsRemaining = 0;
+  adminPasswordVerification.verifiedUntil = Date.now() + ADMIN_SETUP_VERIFIED_TTL_MS;
+  return res.json({ ok: true });
+});
+
+app.post('/api/primer-inicio/clave-administrador', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (!isLocalAdminSetupRequest(req)) {
+    return res.status(403).json({ ok: false, error: 'La configuración inicial solo se puede hacer desde este equipo.' });
+  }
+  if (!isAdminPasswordSetupRequired()) {
+    return res.status(409).json({ ok: false, error: 'La contraseña inicial ya fue configurada.' });
+  }
+  if (adminPasswordVerification.verifiedUntil <= Date.now()) {
+    adminPasswordVerification.verifiedUntil = 0;
+    return res.status(403).json({ ok: false, error: 'Verifica primero el código enviado a tu correo.' });
+  }
+  if (adminPasswordSetupInProgress) {
+    return res.status(409).json({ ok: false, error: 'La configuración inicial ya está en curso.' });
+  }
+
+  const password = String(req.body && req.body.password || '');
+  if (password.length < 8 || password !== password.trim()) {
+    return res.status(400).json({ ok: false, error: 'Usa al menos 8 caracteres y no incluyas espacios al inicio o al final.' });
+  }
+
+  adminPasswordSetupInProgress = true;
+  try {
+    const [admins] = await pool.query(
+      'SELECT id_usuario FROM usuarios WHERE id_rol = 1 ORDER BY id_usuario ASC LIMIT 1'
+    );
+    if (!admins || !admins.length) {
+      return res.status(409).json({ ok: false, error: 'No se encontró una cuenta de administrador para configurar.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, await bcrypt.genSalt(10));
+    await pool.query('UPDATE usuarios SET password_hash = ? WHERE id_usuario = ?', [
+      passwordHash,
+      admins[0].id_usuario
+    ]);
+    fs.unlinkSync(resolveData(ADMIN_PASSWORD_SETUP_MARKER));
+    adminPasswordVerification.verifiedUntil = 0;
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error('[PRIMER INICIO] No se pudo configurar la contraseña del administrador:', error.message || error);
+    return res.status(500).json({ ok: false, error: 'No se pudo guardar la contraseña. Intenta de nuevo.' });
+  } finally {
+    adminPasswordSetupInProgress = false;
+  }
+});
+
 // Ruta de login
 app.post('/api/login', async (req, res) => {
+  if (isAdminPasswordSetupRequired()) {
+    return res.status(403).json({ ok: false, error: 'Configura primero la contraseña del administrador.' });
+  }
   const { usuario, password } = req.body;
   try {
     const user = await verificarCredenciales(usuario, password, { pool });

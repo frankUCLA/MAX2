@@ -23,13 +23,18 @@ process.env.MAX_APP_ROOT = appRoot;
 const dataRoot = isDev
   ? path.join(projectRoot, 'data')
   : path.join(app.getPath('appData'), 'MAX');
+const isFreshInstall = app.isPackaged && !fs.existsSync(dataRoot);
+const adminPasswordSetupMarker = path.join(dataRoot, '.admin-password-setup-required');
+let adminPasswordSetupMarkerError = null;
 try {
   app.setPath('userData', dataRoot);
 } catch (_) {}
 try {
   fs.mkdirSync(dataRoot, { recursive: true });
   fs.mkdirSync(path.join(dataRoot, 'uploads', 'images'), { recursive: true });
-} catch (_) {}
+} catch (error) {
+  adminPasswordSetupMarkerError = error;
+}
 process.env.MAX_DATA_ROOT = dataRoot;
 
 const logFile = path.join(appRoot, 'max-desktop.log');
@@ -40,6 +45,17 @@ function log(...args) {
   try { console.log(...args); } catch (_) {}
 }
 
+if (isFreshInstall && !adminPasswordSetupMarkerError) {
+  try {
+    if (!fs.existsSync(adminPasswordSetupMarker)) {
+      fs.writeFileSync(adminPasswordSetupMarker, 'pending\n', { flag: 'wx' });
+    }
+  } catch (error) {
+    adminPasswordSetupMarkerError = error;
+    log('No se pudo preparar la configuración inicial de contraseña:', error.message);
+  }
+}
+
 function ensureEnvFile() {
   const envPath = path.join(appRoot, '.env');
   const requiredKeys = {
@@ -47,7 +63,12 @@ function ensureEnvFile() {
     LICENCIA_MASTER_KEY: 'MAX-KEY-BASICO-7701',
     LICENCIA_KEY_STANDARD: 'MAX-KEY-STANDARD-8802',
     LICENCIA_KEY_PRO: 'MAX-KEY-PRO-9903',
-    LICENCIA_KEY_ULTRA: 'MAX-KEY-ULTRA-0014'
+    LICENCIA_KEY_ULTRA: 'MAX-KEY-ULTRA-0014',
+    SMTP_HOST: 'smtp.gmail.com',
+    SMTP_PORT: '465',
+    SMTP_SECURE: 'true',
+    SMTP_USER: 'maxbyte.solutions01@gmail.com',
+    SMTP_PASSWORD: ''
   };
   const fallback = [
     'PORT=3000',
@@ -61,7 +82,12 @@ function ensureEnvFile() {
     'LICENCIA_MASTER_KEY=MAX-KEY-BASICO-7701',
     'LICENCIA_KEY_STANDARD=MAX-KEY-STANDARD-8802',
     'LICENCIA_KEY_PRO=MAX-KEY-PRO-9903',
-    'LICENCIA_KEY_ULTRA=MAX-KEY-ULTRA-0014'
+    'LICENCIA_KEY_ULTRA=MAX-KEY-ULTRA-0014',
+    'SMTP_HOST=smtp.gmail.com',
+    'SMTP_PORT=465',
+    'SMTP_SECURE=true',
+    'SMTP_USER=maxbyte.solutions01@gmail.com',
+    'SMTP_PASSWORD='
   ].join('\n') + '\n';
 
   try {
@@ -359,6 +385,9 @@ async function boot() {
   let loadUrl = remoteUrl || null;
 
   try {
+    if (adminPasswordSetupMarkerError) {
+      throw new Error('No se pudo preparar la configuración inicial de contraseña. Revisa los permisos de la carpeta de datos.');
+    }
     if (remoteUrl) {
       log('Modo caja remota:', remoteUrl);
       try {

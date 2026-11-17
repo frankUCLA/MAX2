@@ -2387,6 +2387,9 @@ function renderPosProductGrid() {
   grid.innerHTML = list.map(p => {
     const initial = (p.nombre || '?').charAt(0).toUpperCase();
     const hasBarcode = !!normalizeBarcode(p.codigo_barras);
+    const stock = Number(p.inventario || 0);
+    const stockMinimo = Number(p.stock_minimo || 0);
+    const stockClass = stock <= 0 ? 'is-out-of-stock' : (stockMinimo > 0 && stock <= stockMinimo ? 'is-low-stock' : 'has-stock');
     const baseUsd = Number(p.precio_venta || 0);
     const pubUsd = roundUpMoney(ivaState.activo ? calcConIva(baseUsd).total : baseUsd);
     const priceLabel = CAJA_MAYOR_MODE ? 'Precio manual en Bs' : `$${pubUsd.toFixed(2)}`;
@@ -2402,7 +2405,7 @@ function renderPosProductGrid() {
       ${hasBarcode ? '<span class="pos-tile-barcode" title="Tiene código de barras">▮▮</span>' : ''}
       ${img}
       <div class="pos-tile-name">${p.nombre || ''}</div>
-      <div class="pos-tile-price">${priceLabel}${umTag}${p.unidades_por_empaque ? ' · ' + p.unidades_por_empaque + ' und' : ''}${ivaTag}${isPesoVolumenUnidad(um) ? (CAJA_MAYOR_MODE ? ' · precio manual' : ' · por Bs') : ''}</div>
+      <div class="pos-tile-price ${stockClass}">${priceLabel}${umTag}${p.unidades_por_empaque ? ' · ' + p.unidades_por_empaque + ' und' : ''}${ivaTag}${isPesoVolumenUnidad(um) ? (CAJA_MAYOR_MODE ? ' · precio manual' : ' · por Bs') : ''}</div>
     </button>`;
   }).join('');
   grid.querySelectorAll('.pos-tile').forEach(tile => {
