@@ -360,7 +360,17 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
     async function validarCodigoBarrasEdicionInventario() {
-        const codigo = window.prompt('Escanea el código de barras de autorización para editar productos:');
+        if (typeof window.maxPrompt !== 'function') {
+            const mensaje = 'No está disponible el diálogo de autorización. Recarga la página.';
+            if (typeof showAdminToast === 'function') showAdminToast(mensaje, 'error');
+            else alert(mensaje);
+            return false;
+        }
+        const codigo = await window.maxPrompt('Escanea el código de barras de autorización para editar productos.', {
+            title: 'Autorizar edición de inventario',
+            placeholder: 'Código de barras',
+            okText: 'Validar'
+        });
         if (codigo === null) return false;
         if (!codigo.trim()) {
             const mensaje = 'Escanea el código de barras de autorización.';

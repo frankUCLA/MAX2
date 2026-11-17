@@ -64,14 +64,6 @@
         "to": ".env.example"
       },
       {
-        "from": "Abrir-MAX-celular.bat",
-        "to": "Abrir-MAX-celular.bat"
-      },
-      {
-        "from": "Configurar-MAX-Movil.bat",
-        "to": "Configurar-MAX-Movil.bat"
-      },
-      {
         "from": "LEE-ME-CELULAR.txt",
         "to": "LEE-ME-CELULAR.txt"
       },
