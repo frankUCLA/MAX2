@@ -322,7 +322,7 @@
 .pos-barcode-hint {
   display: none;
 }
-.pos-tile-barcode {
+.pos-tile-stock {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -333,6 +333,9 @@
   border-radius: 3px;
   line-height: 1.2;
 }
+.pos-tile-stock.has-stock { background: #16a34a; }
+.pos-tile-stock.is-low-stock { background: #f59e0b; }
+.pos-tile-stock.is-out-of-stock { background: #dc2626; }
 .pos-tile { position: relative; }
 .notif {
   padding: 8px 10px;

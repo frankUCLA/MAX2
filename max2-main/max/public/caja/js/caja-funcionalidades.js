@@ -2396,6 +2396,16 @@ function renderPosProductGrid() {
   grid.innerHTML = list.map(p => {
     const initial = (p.nombre || '?').charAt(0).toUpperCase();
     const hasBarcode = !!normalizeBarcode(p.codigo_barras);
+    const stockDisponible = getProductoStockDisponible(p);
+    const stockMinimo = Number(p.stock_minimo) || 0;
+    const stockEstado = stockDisponible <= 0
+      ? 'is-out-of-stock'
+      : (stockMinimo > 0 && stockDisponible <= stockMinimo ? 'is-low-stock' : 'has-stock');
+    const stockTitulo = stockDisponible <= 0
+      ? 'Sin existencias'
+      : (stockEstado === 'is-low-stock'
+        ? `Stock mínimo: ${stockDisponible}`
+        : `Stock disponible: ${stockDisponible}`);
     const baseUsd = Number(p.precio_venta || 0);
     const pubUsd = roundUpMoney(ivaState.activo ? calcConIva(baseUsd).total : baseUsd);
     const priceLabel = CAJA_MAYOR_MODE ? 'Precio manual en Bs' : `$${pubUsd.toFixed(2)}`;
@@ -2408,7 +2418,7 @@ function renderPosProductGrid() {
       ? `<img src="${assetUrl(p.ruta_imagen)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div class="pos-tile-ph" style="display:none">${initial}</div>`
       : `<div class="pos-tile-ph">${initial}</div>`;
     return `<button type="button" class="pos-tile" data-id="${p.id_producto}" title="${hasBarcode ? 'Código: ' + normalizeBarcode(p.codigo_barras) : 'Sin código de barras · toca para agregar'}">
-      ${hasBarcode ? '<span class="pos-tile-barcode" title="Tiene código de barras">▮▮</span>' : ''}
+      <span class="pos-tile-stock ${stockEstado}" title="${stockTitulo}" aria-label="${stockTitulo}">▮▮</span>
       ${img}
       <div class="pos-tile-name">${p.nombre || ''}</div>
       <div class="pos-tile-price">${priceLabel}${umTag}${p.unidades_por_empaque ? ' · ' + p.unidades_por_empaque + ' und' : ''}${ivaTag}${isPesoVolumenUnidad(um) ? (CAJA_MAYOR_MODE ? ' · precio manual' : ' · por Bs') : ''}</div>
