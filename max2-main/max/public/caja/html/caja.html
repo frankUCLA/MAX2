@@ -439,8 +439,8 @@
     <div class="pos-gate-card">
       <h2 id="posGateTitle">Abrir terminal de caja</h2>
       <p id="posGateHint">Ingresa la clave de esta caja (la registró el administrador).</p>
-      <label id="posGateClaveLabel" class="pos-gate-label pos-barcode-label" for="posClaveCaja">Clave de caja</label>
-      <input id="posClaveCaja" class="pos-input pos-barcode-capture" placeholder="Apunta el lector aquí" autocomplete="off" inputmode="none" />
+      <label id="posGateClaveLabel" class="pos-gate-label" for="posClaveCaja">Clave de caja</label>
+      <input id="posClaveCaja" class="pos-input" type="text" placeholder="Escribe la clave de esta caja" autocomplete="off" inputmode="text" />
       <label id="posServerUrlLabel" class="pos-gate-label" for="posServerUrl" style="margin-top:10px;">URL del servidor (solo si esta PC no es el servidor)</label>
       <input id="posServerUrl" class="pos-input" placeholder="http://192.168.1.124:3000" style="margin-top:4px;" />
       <p id="posGateServerTip" class="pos-gate-tip">Si ya instalaste con el paquete CAJA (.env), déjalo vacío. No escribas MAX_SERVER_URL= — solo la dirección.</p>

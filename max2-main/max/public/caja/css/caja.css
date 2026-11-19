@@ -506,18 +506,10 @@
 }
 .pos-tile-price {
   font-size: 0.7rem;
-  color: #fff;
+  color: #334155;
   font-weight: 600;
   padding: 6px 2px;
-}
-.pos-tile-price.has-stock {
-  background: #16a34a;
-}
-.pos-tile-price.is-low-stock {
-  background: #f59e0b;
-}
-.pos-tile-price.is-out-of-stock {
-  background: #dc2626;
+  background: transparent;
 }
 .pos-tile-iva {
   display: inline-block;

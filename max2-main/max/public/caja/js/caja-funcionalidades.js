@@ -2396,9 +2396,6 @@ function renderPosProductGrid() {
   grid.innerHTML = list.map(p => {
     const initial = (p.nombre || '?').charAt(0).toUpperCase();
     const hasBarcode = !!normalizeBarcode(p.codigo_barras);
-    const stock = Number(p.inventario || 0);
-    const stockMinimo = Number(p.stock_minimo || 0);
-    const stockClass = stock <= 0 ? 'is-out-of-stock' : (stockMinimo > 0 && stock <= stockMinimo ? 'is-low-stock' : 'has-stock');
     const baseUsd = Number(p.precio_venta || 0);
     const pubUsd = roundUpMoney(ivaState.activo ? calcConIva(baseUsd).total : baseUsd);
     const priceLabel = CAJA_MAYOR_MODE ? 'Precio manual en Bs' : `$${pubUsd.toFixed(2)}`;
@@ -2414,7 +2411,7 @@ function renderPosProductGrid() {
       ${hasBarcode ? '<span class="pos-tile-barcode" title="Tiene código de barras">▮▮</span>' : ''}
       ${img}
       <div class="pos-tile-name">${p.nombre || ''}</div>
-      <div class="pos-tile-price ${stockClass}">${priceLabel}${umTag}${p.unidades_por_empaque ? ' · ' + p.unidades_por_empaque + ' und' : ''}${ivaTag}${isPesoVolumenUnidad(um) ? (CAJA_MAYOR_MODE ? ' · precio manual' : ' · por Bs') : ''}</div>
+      <div class="pos-tile-price">${priceLabel}${umTag}${p.unidades_por_empaque ? ' · ' + p.unidades_por_empaque + ' und' : ''}${ivaTag}${isPesoVolumenUnidad(um) ? (CAJA_MAYOR_MODE ? ' · precio manual' : ' · por Bs') : ''}</div>
     </button>`;
   }).join('');
   grid.querySelectorAll('.pos-tile').forEach(tile => {
@@ -3022,9 +3019,11 @@ async function setupPosTerminalGate() {
     if (label) label.textContent = 'Código de barras';
     const accessInput = document.getElementById('posClaveCaja');
     if (accessInput) {
+      accessInput.classList.add('pos-barcode-capture');
       accessInput.placeholder = 'Apunta el lector aquí';
       accessInput.inputMode = 'none';
     }
+    if (label) label.classList.add('pos-barcode-label');
     if (serverLabel) serverLabel.textContent = 'Servidor Caja Mayor (solo si esta PC no es el servidor)';
     if (serverTip) serverTip.textContent = `Usa la IP del servidor con el puerto ${expectedPort}. Si ya se conectó antes, deja el campo vacío.`;
     if (serverUrlInput) serverUrlInput.placeholder = `http://192.168.1.124:${expectedPort}`;
@@ -3049,7 +3048,14 @@ async function setupPosTerminalGate() {
   }
   gate.style.display = 'flex';
   const accessInput = document.getElementById('posClaveCaja');
-  if (accessInput) accessInput.focus();
+  if (accessInput) {
+    if (!CAJA_MAYOR_MODE) {
+      accessInput.classList.remove('pos-barcode-capture');
+      accessInput.placeholder = 'Escribe la clave de esta caja';
+      accessInput.inputMode = 'text';
+    }
+    accessInput.focus();
+  }
 
   const urlInput = document.getElementById('posServerUrl');
   if (urlInput) urlInput.value = localStorage.getItem('serverBaseUrl') || '';
