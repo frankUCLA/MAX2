@@ -11,7 +11,6 @@ try {
 } catch (_) {}
 
 const express = require('express');
-const nodemailer = require('nodemailer');
 let bcrypt;
 if (isPkg) {
   // En el .exe usamos solo bcryptjs (sin binarios nativos)
@@ -78,23 +77,8 @@ const setupEdition = loadSetupEdition();
 const app = express();
 const SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
 const ADMIN_PASSWORD_SETUP_MARKER = '.admin-password-setup-required';
+const ADMIN_PASSWORD_CONFIGURED_MARKER = '.admin-password-configured';
 let adminPasswordSetupInProgress = false;
-let adminSetupEmailSending = false;
-const ADMIN_SETUP_EMAIL = 'maxbyte.solutions01@gmail.com';
-const ADMIN_SETUP_CODE_TTL_MS = 10 * 60 * 1000;
-const ADMIN_SETUP_CODE_RESEND_MS = 60 * 1000;
-const ADMIN_SETUP_CODE_MAX_ATTEMPTS = 5;
-const ADMIN_SETUP_VERIFIED_TTL_MS = 5 * 60 * 1000;
-const ADMIN_SETUP_OAUTH_TOKEN_FILE = '.admin-password-email-oauth.json';
-const ADMIN_SETUP_OAUTH_STATE_TTL_MS = 5 * 60 * 1000;
-let adminSetupOAuthState = null;
-const adminPasswordVerification = {
-  codeHash: '',
-  expiresAt: 0,
-  attemptsRemaining: 0,
-  verifiedUntil: 0,
-  lastSentAt: 0
-};
 const serverPortState = {
   primaryPort: Number(process.env.PORT || 3000),
   cajaMayorPort: null,
@@ -110,45 +94,33 @@ function isAdminPasswordSetupRequired() {
   return fs.existsSync(resolveData(ADMIN_PASSWORD_SETUP_MARKER));
 }
 
-function isLocalAdminSetupRequest(req) {
-  const remoteAddress = String(req.socket && req.socket.remoteAddress || '').replace(/^::ffff:/, '');
-  return remoteAddress === '127.0.0.1' || remoteAddress === '::1';
-}
-
-function hashAdminSetupCode(code) {
-  return crypto.createHash('sha256').update(code).digest();
-}
-
-function getAdminSetupOAuthConfig() {
-  const clientId = String(process.env.GOOGLE_OAUTH_CLIENT_ID || '').trim();
-  const clientSecret = String(process.env.GOOGLE_OAUTH_CLIENT_SECRET || '').trim();
-  const redirectUri = `http://localhost:${serverPortState.primaryPort}/api/primer-inicio/oauth/callback`;
-  return { clientId, clientSecret, redirectUri, configured: !!(clientId && clientSecret) };
-}
-
-function readAdminSetupOAuthToken() {
+async function reconcileAdminPasswordSetupMarker() {
+  const marker = resolveData(ADMIN_PASSWORD_SETUP_MARKER);
+  if (!fs.existsSync(marker)) return;
+  const configuredMarker = resolveData(ADMIN_PASSWORD_CONFIGURED_MARKER);
   try {
-    const token = JSON.parse(fs.readFileSync(resolveData(ADMIN_SETUP_OAUTH_TOKEN_FILE), 'utf8'));
-    return token && token.refresh_token ? token : null;
-  } catch (error) {
-    if (error.code !== 'ENOENT') {
-      console.error('[PRIMER INICIO] No se pudo leer autorización OAuth:', error.message || error);
+    if (fs.existsSync(configuredMarker)) {
+      fs.unlinkSync(marker);
+      return;
     }
-    return null;
+    const [admins] = await pool.query(
+      'SELECT password_hash FROM usuarios WHERE id_rol = 1 ORDER BY id_usuario ASC LIMIT 1'
+    );
+    if (!admins || !admins.length) return;
+    const knownDefaultHashes = new Set([
+      '$2b$10$YBzkCsf/GSkuQTaYXfz2DeIrS8wFTQWoUlLgLTLgihW.nW83uICEK',
+      '$2b$10$aGU/oC94QgSZ.1eJ8cgZWuiBp53W.c/3Wi2v7PEhYbCekwfG1u/2a'
+    ]);
+    if (knownDefaultHashes.has(String(admins[0].password_hash || '').trim())) return;
+    fs.unlinkSync(marker);
+  } catch (error) {
+    console.warn('[PRIMER INICIO] No se pudo comprobar el marcador de contraseña:', error.message || error);
   }
 }
 
-function saveAdminSetupOAuthToken(token) {
-  const file = resolveData(ADMIN_SETUP_OAUTH_TOKEN_FILE);
-  ensureDir(path.dirname(file));
-  const tempFile = `${file}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
-  fs.writeFileSync(tempFile, JSON.stringify({
-    refresh_token: token.refresh_token,
-    scope: token.scope || '',
-    token_type: token.token_type || 'Bearer',
-    authorized_at: new Date().toISOString()
-  }), { encoding: 'utf8', mode: 0o600, flag: 'wx' });
-  fs.renameSync(tempFile, file);
+function isLocalAdminSetupRequest(req) {
+  const remoteAddress = String(req.socket && req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+  return remoteAddress === '127.0.0.1' || remoteAddress === '::1';
 }
 
 app.get('/setup-edition.js', (_req, res) => {
@@ -400,9 +372,22 @@ app.get('/api/celular/qr.png', requiereRol('administrador'), async (req, res) =>
   try {
     const { getTunelCelularState } = require('./tunel-celular');
     const st = getTunelCelularState();
-    const target = st.movil_url || st.url;
+    let target = st.movil_url || st.url;
     if (!target) {
       return res.status(404).json({ ok: false, error: 'Túnel aún no listo' });
+    }
+    try {
+      const url = new URL(target);
+      if (url.protocol !== 'https:' || url.username || url.password) {
+        throw new Error('El túnel debe usar HTTPS');
+      }
+      url.pathname = '/movil.html';
+      url.search = '';
+      url.hash = '';
+      target = url.toString();
+    } catch (e) {
+      console.error('celular/qr:', e.message || e);
+      return res.status(500).json({ ok: false, error: 'Dirección celular inválida' });
     }
     const QRCode = require('qrcode');
     const buf = await QRCode.toBuffer(target, {
@@ -1316,8 +1301,6 @@ function getLanIps() {
 app.get('/api/status', async (req, res) => {
   const bdOK = await verificarConexiónBD();
   const adminPasswordSetupRequired = isAdminPasswordSetupRequired();
-  const adminEmailOAuthConfig = getAdminSetupOAuthConfig();
-  const adminEmailOAuthAuthorized = !!readAdminSetupOAuthToken();
   const user = req.session.user || null;
   const port = serverPortState.primaryPort;
   const cajaMayorPort = serverPortState.cajaMayorPort;
@@ -1337,9 +1320,6 @@ app.get('/api/status', async (req, res) => {
         servidor: true,
         bd: bdOK,
         admin_password_setup_required: adminPasswordSetupRequired,
-        admin_password_email_oauth_configured: adminEmailOAuthConfig.configured,
-        admin_password_email_oauth_authorized: adminEmailOAuthAuthorized,
-        admin_password_email_oauth_redirect_uri: adminEmailOAuthConfig.redirectUri,
         usuario: null,
         rol: 'Invitado',
         mobile_blocked: true,
@@ -1361,9 +1341,6 @@ app.get('/api/status', async (req, res) => {
     servidor: true,
     bd: bdOK,
     admin_password_setup_required: adminPasswordSetupRequired,
-    admin_password_email_oauth_configured: adminEmailOAuthConfig.configured,
-    admin_password_email_oauth_authorized: adminEmailOAuthAuthorized,
-    admin_password_email_oauth_redirect_uri: adminEmailOAuthConfig.redirectUri,
     usuario: user ? user.usuario : null,
     rol: rol,
     mobile_readonly: !!(req.session && req.session.mobile_readonly),
@@ -1380,258 +1357,6 @@ app.get('/api/status', async (req, res) => {
   });
 });
 
-app.post('/api/primer-inicio/oauth/iniciar', (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  if (!isLocalAdminSetupRequest(req)) {
-    return res.status(403).json({ ok: false, error: 'La autorización solo se puede iniciar desde este equipo.' });
-  }
-  if (!isAdminPasswordSetupRequired()) {
-    return res.status(409).json({ ok: false, error: 'La contraseña inicial ya fue configurada.' });
-  }
-  const config = getAdminSetupOAuthConfig();
-  if (!config.configured) {
-    return res.status(503).json({
-      ok: false,
-      error: 'Faltan GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_CLIENT_SECRET en .env. Configura primero las credenciales OAuth de Google y reinicia MAX.'
-    });
-  }
-
-  const state = crypto.randomBytes(32).toString('hex');
-  adminSetupOAuthState = { value: state, expiresAt: Date.now() + ADMIN_SETUP_OAUTH_STATE_TTL_MS };
-  const authorizeUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-  authorizeUrl.search = new URLSearchParams({
-    client_id: config.clientId,
-    redirect_uri: config.redirectUri,
-    response_type: 'code',
-    scope: 'openid email https://www.googleapis.com/auth/gmail.send',
-    access_type: 'offline',
-    prompt: 'consent',
-    state
-  }).toString();
-  return res.json({ ok: true, url: authorizeUrl.toString(), redirect_uri: config.redirectUri });
-});
-
-app.get('/api/primer-inicio/oauth/callback', async (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  const redirectToSetup = (result) => res.redirect('/?correo_oauth=' + encodeURIComponent(result));
-  if (!isLocalAdminSetupRequest(req)) return res.status(403).send('Autorización permitida únicamente desde este equipo.');
-  if (!isAdminPasswordSetupRequired()) return res.status(409).send('La contraseña inicial ya fue configurada.');
-
-  const expectedState = adminSetupOAuthState;
-  adminSetupOAuthState = null;
-  const returnedState = String(req.query.state || '');
-  if (!expectedState
-      || Date.now() >= expectedState.expiresAt
-      || returnedState.length !== expectedState.value.length
-      || !crypto.timingSafeEqual(Buffer.from(returnedState), Buffer.from(expectedState.value))) {
-    return redirectToSetup('state_error');
-  }
-  if (req.query.error) return redirectToSetup('denied');
-  const code = String(req.query.code || '');
-  if (!code) return redirectToSetup('code_error');
-
-  const config = getAdminSetupOAuthConfig();
-  if (!config.configured) return redirectToSetup('config_error');
-  try {
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        code,
-        client_id: config.clientId,
-        client_secret: config.clientSecret,
-        redirect_uri: config.redirectUri,
-        grant_type: 'authorization_code'
-      }),
-      timeout: 15000
-    });
-    const token = await response.json().catch(() => ({}));
-    if (!response.ok || !token.refresh_token) {
-      console.error('[PRIMER INICIO] Google OAuth no entregó autorización persistente:', token.error || response.status);
-      return redirectToSetup('token_error');
-    }
-    const profileResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
-      headers: { Authorization: `Bearer ${token.access_token}` },
-      timeout: 15000
-    });
-    const profile = await profileResponse.json().catch(() => ({}));
-    if (!profileResponse.ok || String(profile.email || '').toLowerCase() !== ADMIN_SETUP_EMAIL) {
-      console.error('[PRIMER INICIO] OAuth autorizó una cuenta de Gmail distinta a la cuenta de envío.');
-      return redirectToSetup('account_error');
-    }
-    saveAdminSetupOAuthToken(token);
-    return redirectToSetup('success');
-  } catch (error) {
-    console.error('[PRIMER INICIO] Error completando OAuth de Google:', error.message || error);
-    return redirectToSetup('connection_error');
-  }
-});
-
-app.post('/api/primer-inicio/enviar-codigo', async (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  if (!isLocalAdminSetupRequest(req)) {
-    return res.status(403).json({ ok: false, error: 'La verificación solo se puede solicitar desde este equipo.' });
-  }
-  if (!isAdminPasswordSetupRequired()) {
-    return res.status(409).json({ ok: false, error: 'La contraseña inicial ya fue configurada.' });
-  }
-  if (adminSetupEmailSending) {
-    return res.status(409).json({ ok: false, error: 'Ya se está enviando un código. Espera un momento.' });
-  }
-
-  const config = getAdminSetupOAuthConfig();
-  const oauthToken = readAdminSetupOAuthToken();
-  if (!config.configured) {
-    return res.status(503).json({
-      ok: false,
-      error: 'Faltan las credenciales OAuth de Google en .env. Configura GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_CLIENT_SECRET, y reinicia MAX.'
-    });
-  }
-  if (!oauthToken) {
-    return res.status(403).json({ ok: false, error: 'Conecta primero la cuenta de Google para autorizar el envío.' });
-  }
-
-  const now = Date.now();
-  const retryAfter = Math.ceil((adminPasswordVerification.lastSentAt + ADMIN_SETUP_CODE_RESEND_MS - now) / 1000);
-  if (adminPasswordVerification.lastSentAt && retryAfter > 0) {
-    return res.status(429).json({
-      ok: false,
-      retry_after_seconds: retryAfter,
-      error: `Espera ${retryAfter} segundos antes de solicitar otro código.`
-    });
-  }
-
-  if (adminPasswordVerification.verifiedUntil > now) {
-    return res.status(409).json({ ok: false, error: 'El correo ya está verificado. Continúa con la contraseña.' });
-  }
-
-  adminSetupEmailSending = true;
-  adminPasswordVerification.lastSentAt = now;
-  let transporter;
-  try {
-    const code = String(crypto.randomInt(100000, 1000000));
-    const expiresAt = now + ADMIN_SETUP_CODE_TTL_MS;
-    transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        type: 'OAuth2',
-        user: ADMIN_SETUP_EMAIL,
-        clientId: config.clientId,
-        clientSecret: config.clientSecret,
-        refreshToken: oauthToken.refresh_token
-      },
-      connectionTimeout: 15000,
-      greetingTimeout: 10000,
-      socketTimeout: 20000
-    });
-    await transporter.sendMail({
-      from: { name: 'MAX ERP', address: ADMIN_SETUP_EMAIL },
-      to: ADMIN_SETUP_EMAIL,
-      subject: 'Tu código de verificación para configurar MAX',
-      text: [
-        'Hola,',
-        '',
-        'Se solicitó configurar la contraseña inicial del administrador de MAX.',
-        `Tu código de verificación es: ${code}`,
-        '',
-        'El código vence en 10 minutos y solo se puede usar una vez.',
-        'Si no solicitaste esta configuración, ignora este mensaje.',
-        '',
-        'MAX ERP'
-      ].join('\n'),
-      html: `<!doctype html>
-        <html lang="es">
-          <body style="margin:0;padding:32px 12px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 12px 36px rgba(15,23,42,.12);">
-              <tr><td style="padding:30px 34px;background:linear-gradient(135deg,#0f766e,#2563eb);color:#fff;">
-                <div style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.85;">MAX ERP</div>
-                <h1 style="margin:12px 0 0;font-size:26px;line-height:1.2;">Verificación de seguridad</h1>
-              </td></tr>
-              <tr><td style="padding:32px 34px;">
-                <p style="margin:0 0 12px;font-size:16px;line-height:1.6;">Hola,</p>
-                <p style="margin:0 0 22px;font-size:15px;line-height:1.7;color:#475569;">Se solicitó configurar la contraseña inicial de la cuenta administradora. Ingresa este código en MAX para continuar:</p>
-                <div style="padding:22px 16px;text-align:center;background:#f0fdfa;border:1px solid #99f6e4;border-radius:14px;">
-                  <div style="font-size:12px;font-weight:700;letter-spacing:1.5px;color:#0f766e;text-transform:uppercase;">Tu código de verificación</div>
-                  <div style="margin-top:10px;font-size:38px;font-weight:800;letter-spacing:10px;color:#0f172a;">${code}</div>
-                </div>
-                <p style="margin:22px 0 0;font-size:14px;line-height:1.7;color:#475569;"><strong>Este código vence en 10 minutos</strong> y solo se puede usar una vez. No lo compartas con nadie.</p>
-                <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Si no solicitaste esta configuración, puedes ignorar este mensaje; tu cuenta seguirá protegida.</p>
-              </td></tr>
-              <tr><td style="padding:18px 34px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;">Mensaje automático de MAX ERP. Por favor, no respondas a este correo.</td></tr>
-            </table>
-          </body>
-        </html>`
-    });
-
-    adminPasswordVerification.codeHash = hashAdminSetupCode(code).toString('hex');
-    adminPasswordVerification.expiresAt = expiresAt;
-    adminPasswordVerification.attemptsRemaining = ADMIN_SETUP_CODE_MAX_ATTEMPTS;
-    adminPasswordVerification.verifiedUntil = 0;
-    return res.json({
-      ok: true,
-      retry_after_seconds: Math.ceil(ADMIN_SETUP_CODE_RESEND_MS / 1000),
-      expires_in_seconds: Math.ceil(ADMIN_SETUP_CODE_TTL_MS / 1000)
-    });
-  } catch (error) {
-    console.error('[PRIMER INICIO] No se pudo enviar el código de verificación:', error.message || error);
-    return res.status(502).json({
-      ok: false,
-      retry_after_seconds: Math.ceil(ADMIN_SETUP_CODE_RESEND_MS / 1000),
-      error: 'No se pudo enviar el correo con Gmail. Revisa la autorización de Google y que Gmail API esté habilitada.'
-    });
-  } finally {
-    if (transporter) transporter.close();
-    adminSetupEmailSending = false;
-  }
-});
-
-app.post('/api/primer-inicio/verificar-codigo', (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  if (!isLocalAdminSetupRequest(req)) {
-    return res.status(403).json({ ok: false, error: 'La verificación solo se puede completar desde este equipo.' });
-  }
-  if (!isAdminPasswordSetupRequired()) {
-    return res.status(409).json({ ok: false, error: 'La contraseña inicial ya fue configurada.' });
-  }
-
-  const code = String(req.body && req.body.codigo || '').trim();
-  if (!/^\d{6}$/.test(code)) {
-    return res.status(400).json({ ok: false, error: 'Escribe el código de 6 dígitos recibido por correo.' });
-  }
-  const now = Date.now();
-  if (!adminPasswordVerification.attemptsRemaining
-      && adminPasswordVerification.expiresAt > now
-      && adminPasswordVerification.verifiedUntil <= now) {
-    return res.status(429).json({ ok: false, error: 'Se agotaron los intentos. Solicita un nuevo código.' });
-  }
-  if (!adminPasswordVerification.codeHash || now >= adminPasswordVerification.expiresAt) {
-    adminPasswordVerification.codeHash = '';
-    adminPasswordVerification.attemptsRemaining = 0;
-    return res.status(410).json({ ok: false, error: 'El código venció. Solicita uno nuevo.' });
-  }
-  if (adminPasswordVerification.attemptsRemaining <= 0) {
-    return res.status(429).json({ ok: false, error: 'Se agotaron los intentos. Solicita un nuevo código.' });
-  }
-
-  const expectedHash = Buffer.from(adminPasswordVerification.codeHash, 'hex');
-  const providedHash = hashAdminSetupCode(code);
-  if (!crypto.timingSafeEqual(expectedHash, providedHash)) {
-    adminPasswordVerification.attemptsRemaining -= 1;
-    if (!adminPasswordVerification.attemptsRemaining) adminPasswordVerification.codeHash = '';
-    return res.status(400).json({
-      ok: false,
-      error: adminPasswordVerification.attemptsRemaining
-        ? `Código incorrecto. Te quedan ${adminPasswordVerification.attemptsRemaining} intentos.`
-        : 'Código incorrecto. Solicita uno nuevo.'
-    });
-  }
-
-  adminPasswordVerification.codeHash = '';
-  adminPasswordVerification.attemptsRemaining = 0;
-  adminPasswordVerification.verifiedUntil = Date.now() + ADMIN_SETUP_VERIFIED_TTL_MS;
-  return res.json({ ok: true });
-});
-
 app.post('/api/primer-inicio/clave-administrador', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   if (!isLocalAdminSetupRequest(req)) {
@@ -1639,10 +1364,6 @@ app.post('/api/primer-inicio/clave-administrador', async (req, res) => {
   }
   if (!isAdminPasswordSetupRequired()) {
     return res.status(409).json({ ok: false, error: 'La contraseña inicial ya fue configurada.' });
-  }
-  if (adminPasswordVerification.verifiedUntil <= Date.now()) {
-    adminPasswordVerification.verifiedUntil = 0;
-    return res.status(403).json({ ok: false, error: 'Verifica primero el código enviado a tu correo.' });
   }
   if (adminPasswordSetupInProgress) {
     return res.status(409).json({ ok: false, error: 'La configuración inicial ya está en curso.' });
@@ -1668,7 +1389,11 @@ app.post('/api/primer-inicio/clave-administrador', async (req, res) => {
       admins[0].id_usuario
     ]);
     fs.unlinkSync(resolveData(ADMIN_PASSWORD_SETUP_MARKER));
-    adminPasswordVerification.verifiedUntil = 0;
+    fs.writeFileSync(
+      resolveData(ADMIN_PASSWORD_CONFIGURED_MARKER),
+      'configured\n',
+      { encoding: 'utf8', mode: 0o600, flag: 'w' }
+    );
     return res.json({ ok: true });
   } catch (error) {
     console.error('[PRIMER INICIO] No se pudo configurar la contraseña del administrador:', error.message || error);
@@ -4802,6 +4527,7 @@ function startServer(options = {}) {
     } catch (e) {
       console.warn('[LICENCIA] No se pudo sincronizar plan:', e.message || e);
     }
+    await reconcileAdminPasswordSetupMarker();
     return new Promise((resolve, reject) => {
       try {
         _httpServer = app.listen(PORT, HOST, async () => {

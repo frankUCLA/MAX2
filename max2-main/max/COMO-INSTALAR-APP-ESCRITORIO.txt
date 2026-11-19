@@ -25,6 +25,11 @@ EN EL PC SERVIDOR (el principal del local)
    - Sale la ventana de login
    - No abras el navegador
 
+Al ejecutar otra vez el instalador sobre una instalación existente se conserva
+la configuración ya realizada. Desinstalar y volver a instalar tampoco borra
+la contraseña ni los datos guardados. Solo una instalación realmente nueva
+solicita la configuración inicial del correo y la clave del administrador.
+
 5) Firewall Windows: permitir puerto TCP 3000 (si hay otras cajas).
 
 6) Para instalar MAX en Android y vincular el celular al servidor una sola vez,

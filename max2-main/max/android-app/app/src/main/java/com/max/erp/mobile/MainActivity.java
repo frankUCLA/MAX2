@@ -289,14 +289,22 @@ public final class MainActivity extends ComponentActivity {
     private String normalizeQrUrl(String value) {
         if (value == null) return null;
         try {
-            URI scanned = new URI(value.trim());
+            String trimmed = value.trim();
+            if (trimmed.isEmpty()) {
+                runOnUiThread(() -> scanHint.setText(R.string.qr_invalid));
+                return null;
+            }
+            URI scanned = new URI(trimmed);
             if (!"https".equalsIgnoreCase(scanned.getScheme())
                 || scanned.getHost() == null
                 || scanned.getUserInfo() != null
+                || scanned.getRawQuery() != null
+                || scanned.getFragment() != null
                 || (scanned.getPath() != null
                     && !scanned.getPath().isEmpty()
                     && !"/".equals(scanned.getPath())
-                    && !"/movil.html".equals(scanned.getPath()))) {
+                    && !"/movil.html".equals(scanned.getPath())
+                    && !"/movil.html/".equals(scanned.getPath()))) {
                 runOnUiThread(() -> scanHint.setText(R.string.qr_https_required));
                 return null;
             }

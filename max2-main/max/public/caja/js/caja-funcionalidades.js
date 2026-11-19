@@ -2279,6 +2279,15 @@ async function handleBarcodeScan(rawCode) {
   const code = normalizeBarcode(rawCode);
   const input = document.getElementById('posBarcode');
   if (input) input.value = '';
+  const gate = document.getElementById('posTerminalGate');
+  if (gate && gate.style.display !== 'none') {
+    if (!code) return false;
+    const accessInput = document.getElementById('posClaveCaja');
+    const openButton = document.getElementById('posOpenTerminal');
+    if (accessInput) accessInput.value = code;
+    if (openButton) openButton.click();
+    return true;
+  }
   if (!code) {
     focusBarcodeInput();
     return false;
@@ -3039,10 +3048,8 @@ async function setupPosTerminalGate() {
     // Sesión caducada o servidor no respondió: pedir abrir de nuevo (mismo token permite reconectar)
   }
   gate.style.display = 'flex';
-  if (CAJA_MAYOR_MODE) {
-    const accessInput = document.getElementById('posClaveCaja');
-    if (accessInput) accessInput.focus();
-  }
+  const accessInput = document.getElementById('posClaveCaja');
+  if (accessInput) accessInput.focus();
 
   const urlInput = document.getElementById('posServerUrl');
   if (urlInput) urlInput.value = localStorage.getItem('serverBaseUrl') || '';

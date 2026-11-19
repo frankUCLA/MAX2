@@ -17,7 +17,8 @@
     "build:setup:1.0.0": "electron-builder --config electron-builder.setup-1.0.0.js --win nsis",
     "build:setup:6.0.0": "electron-builder --config electron-builder.setup-6.0.0.js --win nsis",
     "build:setup:7.0.0": "electron-builder --config electron-builder.setup-7.0.0.js --win nsis",
-    "build:setup:8.0.0": "electron-builder --config electron-builder.setup-8.0.0.js --win nsis"
+    "build:setup:8.0.0": "electron-builder --config electron-builder.setup-8.0.0.js --win nsis",
+    "build:setup:all": "npm run build:setup:1.0.0 && npm run build:setup:6.0.0 && npm run build:setup:7.0.0 && npm run build:setup:8.0.0"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
@@ -29,7 +30,6 @@
     "multer": "^2.2.0",
     "mysql2": "^3.9.7",
     "node-fetch": "^2.7.0",
-    "nodemailer": "^10.6.0",
     "qrcode": "^1.5.3"
   },
   "devDependencies": {
@@ -67,6 +67,10 @@
         "to": ".env.example"
       },
       {
+        "from": ".env",
+        "to": ".env"
+      },
+      {
         "from": "LEE-ME-CELULAR.txt",
         "to": "LEE-ME-CELULAR.txt"
       },
@@ -95,6 +99,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "include": "installer-uninstall.nsh",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "MAX",

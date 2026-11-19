@@ -284,7 +284,7 @@
           <div class="lic-qr-wrap">
             <div class="lic-qr-box" id="licQrBox">
               ${qrReady
-                ? `<img id="licCelularQr" alt="QR celular" width="220" height="220" src="/api/celular/qr.png?t=${Date.now()}" />`
+                ? `<img id="licCelularQr" alt="QR celular" width="220" height="220" src="/api/celular/qr.png?t=${Date.now()}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'lic-qr-placeholder',textContent:'El QR no está disponible; actualiza el estado'}))" />`
                 : `<div class="lic-qr-placeholder">${escapeHtml(estadoTxt)}</div>`}
             </div>
             <div class="lic-qr-meta">

@@ -1240,32 +1240,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderInitialAdminPasswordForm(status) {
-        const oauthConfigured = !!(status && status.admin_password_email_oauth_configured);
-        const oauthAuthorized = !!(status && status.admin_password_email_oauth_authorized);
         if (!loginSection) return;
         loginSection.style.display = 'block';
         loginSection.innerHTML = `
-            <h2>Conecta tu correo</h2>
-            <p class="login-sub">Autoriza de forma segura la cuenta <strong>maxbyte.solutions01@gmail.com</strong> para que MAX envíe el código que habilita la creación de la contraseña inicial.</p>
+            <h2>Configura el administrador</h2>
+            <p class="login-sub">Crea directamente la contraseña inicial de MAX.</p>
             <div id="initialAdminPasswordMsg" class="msg" role="status"></div>
-            <div id="adminOAuthSetupHelp" style="display:none;padding:14px;margin:12px 0;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;color:#1e3a8a;font-size:.9rem;line-height:1.55;">
-              En Google Cloud crea credenciales OAuth de tipo <strong>Aplicación web</strong>, activa Gmail API y agrega esta URI de redirección autorizada. Coloca el ID y secreto de cliente en <code>.env</code> junto a MAX.exe y reinicia MAX:
-              <code id="adminOAuthRedirectUri" style="display:block;margin-top:8px;overflow-wrap:anywhere;"></code>
-            </div>
-            <form id="connectAdminGoogleForm" autocomplete="off" style="display:${oauthAuthorized || !oauthConfigured ? 'none' : ''};">
-              <button type="submit" id="connectAdminGoogle" class="btn primary">Conectar con Google</button>
-            </form>
-            <form id="sendAdminSetupCodeForm" autocomplete="off">
-              <button type="submit" id="sendAdminSetupCode" class="btn primary">Enviar código de verificación</button>
-            </form>
-            <form id="verifyAdminSetupCodeForm" autocomplete="off" style="display:none;margin-top:16px;">
-              <div class="field">
-                <label for="adminSetupCode">Código de 6 dígitos</label>
-                <input type="text" id="adminSetupCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
-              </div>
-              <button type="submit" id="verifyAdminSetupCode" class="btn primary">Verificar código</button>
-            </form>
-            <form id="initialAdminPasswordForm" autocomplete="off" style="display:none;margin-top:16px;">
+            <form id="initialAdminPasswordForm" autocomplete="off" style="margin-top:16px;">
               <div class="field">
                 <label for="initialAdminPassword">Nueva contraseña</label>
                 <input type="password" id="initialAdminPassword" autocomplete="new-password" minlength="8" required>
@@ -1278,167 +1259,18 @@ document.addEventListener('DOMContentLoaded', () => {
             </form>
         `;
 
-        const connectForm = document.getElementById('connectAdminGoogleForm');
-        const connectButton = document.getElementById('connectAdminGoogle');
-        const sendForm = document.getElementById('sendAdminSetupCodeForm');
-        const sendButton = document.getElementById('sendAdminSetupCode');
-        const verifyForm = document.getElementById('verifyAdminSetupCodeForm');
-        const codeInput = document.getElementById('adminSetupCode');
-        const verifyButton = document.getElementById('verifyAdminSetupCode');
         const passwordForm = document.getElementById('initialAdminPasswordForm');
         const form = passwordForm;
         const passwordInput = document.getElementById('initialAdminPassword');
         const confirmInput = document.getElementById('confirmAdminPassword');
         const saveButton = document.getElementById('saveInitialAdminPassword');
         const message = document.getElementById('initialAdminPasswordMsg');
-        const setupHelp = document.getElementById('adminOAuthSetupHelp');
-        const redirectUriEl = document.getElementById('adminOAuthRedirectUri');
-        if (sendForm) sendForm.style.display = oauthAuthorized ? '' : 'none';
-        if (setupHelp) setupHelp.style.display = oauthConfigured ? 'none' : '';
-        if (redirectUriEl) redirectUriEl.textContent = String(status && status.admin_password_email_oauth_redirect_uri || '');
-        if (connectForm && !oauthConfigured) connectForm.style.display = 'none';
-        if (!connectForm || !connectButton || !sendForm || !sendButton || !verifyForm || !codeInput || !verifyButton
-            || !passwordForm || !passwordInput || !confirmInput || !saveButton || !message) return;
+        if (!passwordForm || !passwordInput || !confirmInput || !saveButton || !message) return;
 
         const setMessage = (text, color) => {
             message.textContent = text;
             message.style.color = color || '#3b82f6';
         };
-        let resendTimer = null;
-        const startResendCountdown = (seconds) => {
-            if (resendTimer) clearInterval(resendTimer);
-            const until = Date.now() + seconds * 1000;
-            const update = () => {
-                const remaining = Math.max(0, Math.ceil((until - Date.now()) / 1000));
-                sendButton.disabled = remaining > 0;
-                sendButton.textContent = remaining > 0
-                    ? `Reenviar código (${remaining}s)`
-                    : 'Reenviar código';
-                if (!remaining && resendTimer) {
-                    clearInterval(resendTimer);
-                    resendTimer = null;
-                }
-            };
-            update();
-            if (seconds > 0) resendTimer = setInterval(update, 1000);
-        };
-
-        const oauthResult = new URLSearchParams(window.location.search).get('correo_oauth');
-        if (oauthAuthorized && oauthResult === 'success') {
-            setMessage('Cuenta Google conectada. Ya puedes solicitar el código de verificación.', '#10b981');
-        } else if (oauthResult && oauthResult !== 'success') {
-            setMessage('No se pudo completar la conexión con Google. Revisa la configuración e inténtalo otra vez.', '#ef4444');
-        } else if (!oauthConfigured) {
-            setMessage('Antes de continuar, configura GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_CLIENT_SECRET en .env.', '#b45309');
-        }
-
-        connectForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            connectButton.disabled = true;
-            setMessage('Preparando conexión segura con Google…');
-            try {
-                const res = await fetch('/api/primer-inicio/oauth/iniciar', {
-                    method: 'POST',
-                    credentials: 'include',
-                    cache: 'no-store'
-                });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok || !data.ok) {
-                    setMessage(data.error || 'No se pudo iniciar la autorización de Google.', '#ef4444');
-                    connectButton.disabled = false;
-                    return;
-                }
-                window.open(data.url, '_blank', 'noopener');
-                setMessage('Completa la autorización en la ventana de Google. Esta pantalla se actualizará al terminar.');
-                let attempts = 0;
-                const pollAuthorization = async () => {
-                    try {
-                        const statusRes = await fetch('/api/status', { credentials: 'include', cache: 'no-store' });
-                        const currentStatus = await statusRes.json();
-                        if (currentStatus.admin_password_email_oauth_authorized) {
-                            if (resendTimer) clearInterval(resendTimer);
-                            renderInitialAdminPasswordForm(currentStatus);
-                            return;
-                        }
-                    } catch (error) {
-                        console.error('Error comprobando la autorización de Google:', error);
-                    }
-                    attempts += 1;
-                    if (attempts >= 120) {
-                        connectButton.disabled = false;
-                        setMessage('No se completó la autorización. Puedes volver a intentarlo.', '#ef4444');
-                        return;
-                    }
-                    setTimeout(pollAuthorization, 2500);
-                };
-                setTimeout(pollAuthorization, 2500);
-            } catch (error) {
-                console.error('Error iniciando autorización OAuth de Google:', error);
-                setMessage('No se pudo conectar con MAX. Intenta de nuevo.', '#ef4444');
-                connectButton.disabled = false;
-            }
-        });
-
-        sendForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            sendButton.disabled = true;
-            setMessage('Enviando código de seguridad…');
-            try {
-                const res = await fetch('/api/primer-inicio/enviar-codigo', {
-                    method: 'POST',
-                    credentials: 'include',
-                    cache: 'no-store'
-                });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok || !data.ok) {
-                    setMessage(data.error || 'No se pudo enviar el código.', '#ef4444');
-                    if (Number(data.retry_after_seconds) > 0) {
-                        startResendCountdown(Number(data.retry_after_seconds));
-                    } else {
-                        sendButton.disabled = false;
-                    }
-                    return;
-                }
-                setMessage('Código enviado. Revisa maxbyte.solutions01@gmail.com; puede tardar unos minutos.');
-                verifyForm.style.display = '';
-                codeInput.focus();
-                startResendCountdown(Number(data.retry_after_seconds) || 60);
-            } catch (error) {
-                console.error('Error solicitando el código de configuración inicial:', error);
-                setMessage('No se pudo conectar con el servidor. Intenta de nuevo.', '#ef4444');
-                sendButton.disabled = false;
-            }
-        });
-
-        verifyForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            verifyButton.disabled = true;
-            setMessage('Verificando código…');
-            try {
-                const res = await fetch('/api/primer-inicio/verificar-codigo', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    cache: 'no-store',
-                    body: JSON.stringify({ codigo: codeInput.value.trim() })
-                });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok || !data.ok) {
-                    setMessage(data.error || 'El código no es válido.', '#ef4444');
-                    return;
-                }
-                verifyForm.style.display = 'none';
-                passwordForm.style.display = '';
-                setMessage('Correo verificado. Ahora crea la contraseña del administrador.', '#10b981');
-                passwordInput.focus();
-            } catch (error) {
-                console.error('Error verificando el código de configuración inicial:', error);
-                setMessage('No se pudo conectar con el servidor. Intenta de nuevo.', '#ef4444');
-            } finally {
-                verifyButton.disabled = false;
-            }
-        });
-
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
             const password = passwordInput.value;
@@ -1467,7 +1299,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     setMessage(data.error || 'No se pudo guardar la contraseña.', '#ef4444');
                     return;
                 }
-                if (resendTimer) clearInterval(resendTimer);
                 restoreLoginForm('Contraseña configurada. Inicia sesión con la cuenta administradora.', '#10b981');
             } catch (error) {
                 console.error('Error configurando la contraseña inicial:', error);

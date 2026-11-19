@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="/imagen/images.png"/>
   <title>MAX POS — Caja</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="caja.css?v=214">
+  <link rel="stylesheet" href="caja.css?v=215">
   <script src="/setup-edition.js"></script>
   <script src="max-theme.js"></script>
   <script src="max-ui-dialogs.js?v=210"></script>
@@ -395,9 +395,10 @@
       </div>
       <form id="form-acceso-devoluciones" class="dev-lock">
         <div class="dev-lock-badge">Acceso protegido</div>
-        <label for="claveDevoluciones">Código de barras de autorización</label>
+        <p class="dev-sub">Escanea el código de barras de autorización para continuar.</p>
+        <label class="pos-barcode-label" for="claveDevoluciones">Código de barras de autorización</label>
         <div class="dev-lock-row">
-          <input type="text" id="claveDevoluciones" class="dev-input" placeholder="Apunta el lector aquí" required autocomplete="off" inputmode="none">
+          <input type="text" id="claveDevoluciones" class="dev-input pos-barcode-capture" placeholder="Apunta el lector aquí" required autocomplete="off" inputmode="none">
         </div>
         <p id="devolucionLockMsg" class="dev-msg" aria-live="polite"></p>
       </form>
@@ -438,8 +439,8 @@
     <div class="pos-gate-card">
       <h2 id="posGateTitle">Abrir terminal de caja</h2>
       <p id="posGateHint">Ingresa la clave de esta caja (la registró el administrador).</p>
-      <label id="posGateClaveLabel" class="pos-gate-label" for="posClaveCaja">Clave de caja</label>
-      <input id="posClaveCaja" class="pos-input" placeholder="Ej: caja1" autocomplete="off" />
+      <label id="posGateClaveLabel" class="pos-gate-label pos-barcode-label" for="posClaveCaja">Clave de caja</label>
+      <input id="posClaveCaja" class="pos-input pos-barcode-capture" placeholder="Apunta el lector aquí" autocomplete="off" inputmode="none" />
       <label id="posServerUrlLabel" class="pos-gate-label" for="posServerUrl" style="margin-top:10px;">URL del servidor (solo si esta PC no es el servidor)</label>
       <input id="posServerUrl" class="pos-input" placeholder="http://192.168.1.124:3000" style="margin-top:4px;" />
       <p id="posGateServerTip" class="pos-gate-tip">Si ya instalaste con el paquete CAJA (.env), déjalo vacío. No escribas MAX_SERVER_URL= — solo la dirección.</p>
