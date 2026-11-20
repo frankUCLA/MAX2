@@ -359,6 +359,7 @@
 
   function ensureModalHistorialCaja() {
     if (document.getElementById('modalHistorialCaja')) return;
+    const puedeCerrarCaja = window.maxSetupFeatureEnabled('cashClosing');
     const modal = document.createElement('div');
     modal.id = 'modalHistorialCaja';
     modal.className = 'lic-hist-modal';
@@ -370,7 +371,7 @@
             <p class="lic-hist-eyebrow">Historial de caja</p>
             <h3 id="licHistTitle">Caja</h3>
           </div>
-          <div class="lic-hist-close-actions">
+          ${puedeCerrarCaja ? `<div class="lic-hist-close-actions">
             <label class="lic-hist-cierre-format">Tipo de cierre
               <select id="licHistCierreTipo">
                 <option value="detallado">Detallado</option>
@@ -379,7 +380,7 @@
             </label>
             <button type="button" class="btn primary" id="licHistCierreBtn">Imprimir cierre 57 mm</button>
             <p id="licHistCierreMsg" class="lic-hist-cierre-msg" aria-live="polite"></p>
-          </div>
+          </div>` : ''}
         </header>
         <div class="lic-hist-filters">
           <label class="lic-hist-field">Desde
@@ -413,7 +414,9 @@
     document.getElementById('cerrarModalHistorialCaja').addEventListener('click', () => {
       modal.style.display = 'none';
     });
-    document.getElementById('licHistCierreBtn').addEventListener('click', imprimirCierreCaja);
+    if (puedeCerrarCaja) {
+      document.getElementById('licHistCierreBtn').addEventListener('click', imprimirCierreCaja);
+    }
 
     const reload = () => {
       const id = Number(modal.getAttribute('data-caja-id'));

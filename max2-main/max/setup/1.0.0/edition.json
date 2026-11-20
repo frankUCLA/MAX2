@@ -4,6 +4,8 @@
     "accounting": false,
     "accountingReports": false,
     "promotions": false,
-    "cajaMayor": false
+    "cajaMayor": false,
+    "iva": false,
+    "cashClosing": true
   }
 }

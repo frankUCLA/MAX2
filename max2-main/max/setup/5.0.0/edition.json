@@ -1,9 +1,11 @@
 {
-  "version": "7.0.0",
+  "version": "5.0.0",
   "features": {
     "accounting": true,
     "accountingReports": true,
     "promotions": true,
-    "cajaMayor": true
+    "cajaMayor": false,
+    "iva": true,
+    "cashClosing": false
   }
 }

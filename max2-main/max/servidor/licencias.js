@@ -129,10 +129,11 @@ async function validarClaveAutorizacionCaja(pool, claveIngresada) {
 /**
  * Register Express routes for licenses / POS terminals / dashboard resumen.
  */
-function registerLicenciasRoutes(app, { pool, requiereRol, isCajaMayorRequest, getServerPorts }) {
+function registerLicenciasRoutes(app, { pool, requiereRol, isCajaMayorRequest, getServerPorts, cierreCajaEnabled = true }) {
   const ports = typeof getServerPorts === 'function'
     ? getServerPorts
     : () => ({ primaryPort: Number(process.env.PORT || 3000), cajaMayorPort: null });
+  const puedeCerrarCaja = cierreCajaEnabled !== false;
   const isMayorRequest = typeof isCajaMayorRequest === 'function'
     ? isCajaMayorRequest
     : () => false;
@@ -364,6 +365,9 @@ function registerLicenciasRoutes(app, { pool, requiereRol, isCajaMayorRequest, g
   // Solo aplica a cajas registradas (el cupo del plan ya limita cuántas existen).
   app.get('/api/licencias/cajas/:id/historial', requiereRol('administrador'), async (req, res) => {
     try {
+      if (!puedeCerrarCaja && req.query.cierre === '1') {
+        return res.status(404).json({ ok: false, error: 'Cierre de caja no disponible en esta edición.' });
+      }
       const idCaja = Number(req.params.id);
       if (!Number.isFinite(idCaja) || idCaja <= 0) {
         return res.status(400).json({ ok: false, error: 'id de caja inválido' });
@@ -473,7 +477,7 @@ function registerLicenciasRoutes(app, { pool, requiereRol, isCajaMayorRequest, g
       const montoDevs = (devoluciones || []).reduce((s, d) => s + Number(d.monto_reembolsado || 0), 0);
       const ventasConDev = (ventas || []).filter((v) => Number(v.devoluciones_count || 0) > 0).length;
       let cierre = null;
-      if (req.query.cierre === '1' && desde && hasta && desde === hasta) {
+      if (puedeCerrarCaja && req.query.cierre === '1' && desde && hasta && desde === hasta) {
         const [ventaTotals] = await pool.query(
           `SELECT COUNT(*) AS ventas, IFNULL(SUM(v.total_venta), 0) AS monto_ventas
            FROM ventas v

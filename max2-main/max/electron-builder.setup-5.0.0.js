@@ -4,17 +4,17 @@ module.exports = {
   ...packageJson.build,
   directories: {
     ...packageJson.build.directories,
-    output: 'dist-build-7.0.0'
+    output: 'dist-build-5.0.0'
   },
   extraFiles: [
     ...packageJson.build.extraFiles,
     {
-      from: 'setup/7.0.0/edition.json',
+      from: 'setup/5.0.0/edition.json',
       to: 'setup-edition.json'
     }
   ],
   extraMetadata: {
-    version: '7.0.0'
+    version: '5.0.0'
   },
   publish: null
 };

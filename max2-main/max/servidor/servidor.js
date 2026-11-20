@@ -41,7 +41,9 @@ const DEFAULT_SETUP_EDITION = {
     accounting: true,
     accountingReports: true,
     promotions: true,
-    cajaMayor: true
+    cajaMayor: true,
+    iva: true,
+    cashClosing: true
   }
 };
 
@@ -143,6 +145,9 @@ app.get('/setup-edition.js', (_req, res) => {
 });
 
 app.use((req, res, next) => {
+  if (!setupEdition.features.accounting && /^\/api\/contabilidad(?:\/|$)/.test(req.path)) {
+    return res.status(404).json({ ok: false, error: 'Contabilidad no disponible en esta edición.' });
+  }
   if (!setupEdition.features.promotions && /^\/api\/(?:v1\/)?promociones(?:\/|$)/.test(req.path)) {
     return res.status(404).json({ ok: false, error: 'Promociones no disponibles en esta edición.' });
   }
@@ -363,6 +368,7 @@ registerLicenciasRoutes(app, {
   pool,
   requiereRol,
   isCajaMayorRequest,
+  cierreCajaEnabled: setupEdition.features.cashClosing,
   getServerPorts: () => Object.assign({}, serverPortState)
 });
 registerAsistenteRoutes(app, { pool, requiereRol });
@@ -1005,6 +1011,7 @@ async function ensureIvaSchema(poolConn) {
 }
 
 async function getIvaConfig(poolConn, ensureSchema = true) {
+  if (!setupEdition.features.iva) return { activo: false, porcentaje: 16 };
   if (ensureSchema) await ensureIvaSchema(poolConn);
   let activo = false;
   let porcentaje = 16;
@@ -1949,6 +1956,9 @@ app.get('/api/admin/config/iva', requiereRol('administrador'), async (req, res) 
 });
 
 app.put('/api/admin/config/iva', requiereRol('administrador'), async (req, res) => {
+  if (!setupEdition.features.iva) {
+    return res.status(404).json({ ok: false, error: 'IVA no disponible en esta edición.' });
+  }
   try {
     const body = req.body || {};
     const activo = !!(body.activo === true || body.activo === 1 || body.activo === '1' || body.activo === 'true');

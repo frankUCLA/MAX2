@@ -15,10 +15,10 @@
     "build:desktop": "electron-builder --win nsis",
     "build:dir": "electron-builder --win dir",
     "build:setup:1.0.0": "electron-builder --config electron-builder.setup-1.0.0.js --win nsis",
+    "build:setup:5.0.0": "electron-builder --config electron-builder.setup-5.0.0.js --win nsis",
     "build:setup:6.0.0": "electron-builder --config electron-builder.setup-6.0.0.js --win nsis",
-    "build:setup:7.0.0": "electron-builder --config electron-builder.setup-7.0.0.js --win nsis",
     "build:setup:8.0.0": "electron-builder --config electron-builder.setup-8.0.0.js --win nsis",
-    "build:setup:all": "npm run build:setup:1.0.0 && npm run build:setup:6.0.0 && npm run build:setup:7.0.0 && npm run build:setup:8.0.0"
+    "build:setup:all": "npm run build:setup:1.0.0 && npm run build:setup:5.0.0 && npm run build:setup:6.0.0 && npm run build:setup:8.0.0"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
